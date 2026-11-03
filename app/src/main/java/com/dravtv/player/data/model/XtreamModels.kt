@@ -1,5 +1,6 @@
 package com.dravtv.player.data.model
 
+import com.google.gson.JsonElement
 import com.google.gson.annotations.SerializedName
 
 data class LoginResponse(
@@ -40,10 +41,7 @@ data class Channel(
     @SerializedName("epg_channel_id") val epgChannelId: String?,
     @SerializedName("category_id") val categoryId: String?,
     @SerializedName("container_extension") val extension: String? = "ts"
-) {
-    val safeIcon: String?
-        get() = sanitizeImageUrl(streamIcon)
-}
+)
 
 data class VodMovie(
     @SerializedName("num") val num: Any?,
@@ -53,12 +51,9 @@ data class VodMovie(
     @SerializedName("stream_icon") val streamIcon: String?,
     @SerializedName("rating") val rating: String?,
     @SerializedName("rating_5based") val rating5Based: Double?,
-    @SerializedName("container_extension") val containerExtension: String? = "mp4",
+    @SerializedName("container_extension") val containerExtension: String? = "mkv",
     @SerializedName("category_id") val categoryId: String?
-) {
-    val safeIcon: String?
-        get() = sanitizeImageUrl(streamIcon)
-}
+)
 
 data class SeriesItem(
     @SerializedName("num") val num: Any?,
@@ -72,16 +67,38 @@ data class SeriesItem(
     @SerializedName("releaseDate") val releaseDate: String?,
     @SerializedName("rating") val rating: String?,
     @SerializedName("category_id") val categoryId: String?
-) {
-    val safeIcon: String?
-        get() = sanitizeImageUrl(cover)
-}
+)
 
-fun sanitizeImageUrl(url: String?): String? {
-    if (url.isNullOrBlank()) return null
-    var clean = url.trim()
-    if (clean.startsWith("http://image.tmdb.org")) {
-        clean = clean.replace("http://image.tmdb.org", "https://image.tmdb.org")
-    }
-    return clean
-}
+data class SeriesInfoResponse(
+    @SerializedName("seasons") val seasons: List<SeasonItem>?,
+    @SerializedName("info") val info: SeriesInfoDetail?,
+    @SerializedName("episodes") val episodes: JsonElement?
+)
+
+data class SeasonItem(
+    @SerializedName("air_date") val airDate: String?,
+    @SerializedName("episode_count") val episodeCount: Int?,
+    @SerializedName("id") val id: Int?,
+    @SerializedName("name") val name: String?,
+    @SerializedName("overview") val overview: String?,
+    @SerializedName("season_number") val seasonNumber: Int?
+)
+
+data class SeriesInfoDetail(
+    @SerializedName("name") val name: String?,
+    @SerializedName("cover") val cover: String?,
+    @SerializedName("plot") val plot: String?,
+    @SerializedName("cast") val cast: String?,
+    @SerializedName("director") val director: String?,
+    @SerializedName("genre") val genre: String?,
+    @SerializedName("releaseDate") val releaseDate: String?,
+    @SerializedName("rating") val rating: String?
+)
+
+data class EpisodeItem(
+    @SerializedName("id") val id: String,
+    @SerializedName("episode_num") val episodeNum: Int?,
+    @SerializedName("title") val title: String,
+    @SerializedName("container_extension") val containerExtension: String? = "mkv",
+    @SerializedName("season") val season: Int?
+)

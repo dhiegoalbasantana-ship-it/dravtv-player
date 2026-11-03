@@ -7,6 +7,8 @@ import androidx.compose.runtime.*
 import androidx.lifecycle.lifecycleScope
 import com.dravtv.player.data.api.XtreamRepository
 import com.dravtv.player.data.model.*
+import com.google.gson.JsonElement
+import com.google.gson.JsonObject
 import com.dravtv.player.ui.player.PlayerScreen
 import com.dravtv.player.ui.screens.*
 import com.dravtv.player.ui.theme.DravTVTheme
