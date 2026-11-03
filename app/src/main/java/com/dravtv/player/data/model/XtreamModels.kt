@@ -1,5 +1,6 @@
 package com.dravtv.player.data.model
 
+import com.google.gson.JsonElement
 import com.google.gson.annotations.SerializedName
 
 data class LoginResponse(
@@ -50,7 +51,8 @@ data class VodMovie(
     @SerializedName("stream_icon") val streamIcon: String?,
     @SerializedName("rating") val rating: String?,
     @SerializedName("rating_5based") val rating5Based: Double?,
-    @SerializedName("container_extension") val containerExtension: String? = "mp4"
+    @SerializedName("container_extension") val containerExtension: String? = "mkv",
+    @SerializedName("category_id") val categoryId: String?
 )
 
 data class SeriesItem(
@@ -65,4 +67,38 @@ data class SeriesItem(
     @SerializedName("releaseDate") val releaseDate: String?,
     @SerializedName("rating") val rating: String?,
     @SerializedName("category_id") val categoryId: String?
+)
+
+data class SeriesInfoResponse(
+    @SerializedName("seasons") val seasons: List<SeasonItem>?,
+    @SerializedName("info") val info: SeriesInfoDetail?,
+    @SerializedName("episodes") val episodes: JsonElement?
+)
+
+data class SeasonItem(
+    @SerializedName("air_date") val airDate: String?,
+    @SerializedName("episode_count") val episodeCount: Int?,
+    @SerializedName("id") val id: Int?,
+    @SerializedName("name") val name: String?,
+    @SerializedName("overview") val overview: String?,
+    @SerializedName("season_number") val seasonNumber: Int?
+)
+
+data class SeriesInfoDetail(
+    @SerializedName("name") val name: String?,
+    @SerializedName("cover") val cover: String?,
+    @SerializedName("plot") val plot: String?,
+    @SerializedName("cast") val cast: String?,
+    @SerializedName("director") val director: String?,
+    @SerializedName("genre") val genre: String?,
+    @SerializedName("releaseDate") val releaseDate: String?,
+    @SerializedName("rating") val rating: String?
+)
+
+data class EpisodeItem(
+    @SerializedName("id") val id: String,
+    @SerializedName("episode_num") val episodeNum: Int?,
+    @SerializedName("title") val title: String,
+    @SerializedName("container_extension") val containerExtension: String? = "mkv",
+    @SerializedName("season") val season: Int?
 )

@@ -34,6 +34,7 @@ fun HomeScreen(
     onNavigateLive: () -> Unit,
     onNavigateVod: () -> Unit,
     onNavigateSeries: () -> Unit,
+    onNavigateSettings: () -> Unit,
     onLogout: () -> Unit
 ) {
     Box(
@@ -47,7 +48,7 @@ fun HomeScreen(
             .padding(24.dp)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Top Bar com Logo Oficial
+            // Top Bar com Logo Oficial e Ações Rápidas
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -84,29 +85,43 @@ fun HomeScreen(
                     }
                 }
 
-                IconButton(
-                    onClick = onLogout,
-                    modifier = Modifier
-                        .background(Color(0xFF1B2232), RoundedCornerShape(10.dp))
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ExitToApp,
-                        contentDescription = "Sair",
-                        tint = Color(0xFFFF5252)
-                    )
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    IconButton(
+                        onClick = onNavigateSettings,
+                        modifier = Modifier
+                            .background(Color(0xFF1B2232), RoundedCornerShape(10.dp))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Configurações",
+                            tint = Color(0xFF00E5FF)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = onLogout,
+                        modifier = Modifier
+                            .background(Color(0xFF1B2232), RoundedCornerShape(10.dp))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ExitToApp,
+                            contentDescription = "Sair",
+                            tint = Color(0xFFFF5252)
+                        )
+                    }
                 }
             }
 
-            // Cards Grid (Live TV, Filmes, Séries)
+            // Cards Grid (Live TV, Filmes, Séries, Configurações)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(20.dp)
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 DravDashboardCard(
                     title = "CANAIS AO VIVO",
-                    subtitle = "Futebol, Notícias, Variedades e 24h",
+                    subtitle = "Futebol, Notícias e Variedades",
                     icon = Icons.Default.LiveTv,
                     gradient = listOf(Color(0xFFFF9100), Color(0xFFFF3D00)),
                     modifier = Modifier.weight(1f),
@@ -115,7 +130,7 @@ fun HomeScreen(
 
                 DravDashboardCard(
                     title = "FILMES (VOD)",
-                    subtitle = "Lançamentos dos cinemas e clássicos em HD/4K",
+                    subtitle = "Lançamentos e Clássicos em HD/4K",
                     icon = Icons.Default.Movie,
                     gradient = listOf(Color(0xFF9C27B0), Color(0xFF673AB7)),
                     modifier = Modifier.weight(1f),
@@ -124,11 +139,20 @@ fun HomeScreen(
 
                 DravDashboardCard(
                     title = "SÉRIES",
-                    subtitle = "Todas as temporadas e episódios atualizados",
+                    subtitle = "Temporadas e Novos Episódios",
                     icon = Icons.Default.Tv,
                     gradient = listOf(Color(0xFF00E5FF), Color(0xFF0091EA)),
                     modifier = Modifier.weight(1f),
                     onClick = onNavigateSeries
+                )
+
+                DravDashboardCard(
+                    title = "CONFIGURAÇÕES",
+                    subtitle = "Speedtest, Player e Servidor",
+                    icon = Icons.Default.Tune,
+                    gradient = listOf(Color(0xFF4CAF50), Color(0xFF2E7D32)),
+                    modifier = Modifier.weight(1f),
+                    onClick = onNavigateSettings
                 )
             }
         }
@@ -154,10 +178,10 @@ fun DravDashboardCard(
             .border(
                 width = if (isFocused) 3.dp else 1.dp,
                 color = if (isFocused) gradient.first() else Color(0xFF232D42),
-                shape = RoundedCornerShape(20.dp)
+                shape = RoundedCornerShape(18.dp)
             )
             .clickable { onClick() },
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isFocused) Color(0xFF1E273A) else Color(0xFF131926)
         )
@@ -165,15 +189,15 @@ fun DravDashboardCard(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
+                .padding(20.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Box(
                 modifier = Modifier
-                    .size(70.dp)
+                    .size(60.dp)
                     .background(
                         Brush.linearGradient(gradient),
-                        RoundedCornerShape(16.dp)
+                        RoundedCornerShape(14.dp)
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -181,7 +205,7 @@ fun DravDashboardCard(
                     imageVector = icon,
                     contentDescription = title,
                     tint = Color.White,
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(34.dp)
                 )
             }
 
@@ -189,14 +213,15 @@ fun DravDashboardCard(
                 Text(
                     text = title,
                     color = Color.White,
-                    fontSize = 22.sp,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = subtitle,
                     color = Color(0xFF8B949E),
-                    fontSize = 13.sp
+                    fontSize = 12.sp,
+                    maxLines = 2
                 )
             }
         }

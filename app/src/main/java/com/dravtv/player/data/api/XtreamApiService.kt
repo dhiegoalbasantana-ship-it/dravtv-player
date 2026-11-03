@@ -57,4 +57,12 @@ interface XtreamApiService {
         @Query("action") action: String = "get_series",
         @Query("category_id") categoryId: String? = null
     ): Response<List<SeriesItem>>
+
+    @GET("player_api.php")
+    suspend fun getSeriesInfo(
+        @Query("username") username: String,
+        @Query("password") password: String,
+        @Query("series_id") seriesId: Int,
+        @Query("action") action: String = "get_series_info"
+    ): Response<SeriesInfoResponse>
 }
