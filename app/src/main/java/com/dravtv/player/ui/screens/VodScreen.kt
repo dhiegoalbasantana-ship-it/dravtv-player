@@ -20,10 +20,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -31,11 +31,13 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.dravtv.player.data.model.Category
 import com.dravtv.player.data.model.VodMovie
+import com.dravtv.player.util.ImageHelper
 
 @Composable
 fun VodScreen(
     categories: List<Category>,
     movies: List<VodMovie>,
+    isLoadingMovies: Boolean,
     selectedCategoryId: String?,
     onSelectCategory: (String) -> Unit,
     onSelectMovie: (VodMovie) -> Unit,
@@ -56,7 +58,7 @@ fun VodScreen(
             .fillMaxSize()
             .background(Color(0xFF090D14))
     ) {
-        // Lateral de Categorias de Filmes
+        // Lateral de Categorias
         Column(
             modifier = Modifier
                 .width(300.dp)
@@ -80,9 +82,9 @@ fun VodScreen(
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = "Filmes",
+                    text = "Gêneros de Filmes",
                     color = Color.White,
-                    fontSize = 19.sp,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -103,11 +105,11 @@ fun VodScreen(
                             .clickable { onSelectCategory(category.categoryId) }
                             .border(
                                 width = if (isFocused) 2.dp else 0.dp,
-                                color = if (isFocused) Color(0xFF9C27B0) else Color.Transparent,
+                                color = if (isFocused) Color(0xFFFF9100) else Color.Transparent,
                                 shape = RoundedCornerShape(10.dp)
                             ),
                         color = when {
-                            isSelected -> Color(0xFF9C27B0)
+                            isSelected -> Color(0xFFFF9100)
                             isFocused -> Color(0xFF1D2638)
                             else -> Color(0xFF161E2E)
                         },
@@ -115,7 +117,7 @@ fun VodScreen(
                     ) {
                         Text(
                             text = category.categoryName,
-                            color = Color.White,
+                            color = if (isSelected) Color.Black else Color.White,
                             fontSize = 14.sp,
                             fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
@@ -127,7 +129,7 @@ fun VodScreen(
             }
         }
 
-        // Grade de Capas de Filmes
+        // Grade de Filmes
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -141,42 +143,54 @@ fun VodScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Catálogo (${filteredMovies.size} títulos)",
+                    text = "Filmes (${filteredMovies.size})",
                     color = Color.White,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold
                 )
 
-                // Campo de Busca
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
                     placeholder = { Text("Buscar filme...") },
                     leadingIcon = {
-                        Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF9C27B0))
+                        Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFFFF9100))
                     },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White,
-                        focusedBorderColor = Color(0xFF9C27B0),
+                        focusedBorderColor = Color(0xFFFF9100),
                         unfocusedBorderColor = Color(0xFF232D42)
                     ),
                     modifier = Modifier.width(300.dp)
                 )
             }
 
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 140.dp),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.fillMaxSize()
-            ) {
-                items(filteredMovies) { movie ->
-                    MovieCard(
-                        movie = movie,
-                        onClick = { onSelectMovie(movie) }
-                    )
+            if (isLoadingMovies) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator(color = Color(0xFFFF9100))
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text("Carregando filmes...", color = Color(0xFFCCCCCC), fontSize = 14.sp)
+                    }
+                }
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = 150.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    items(filteredMovies) { movie ->
+                        MovieCard(
+                            movie = movie,
+                            onClick = { onSelectMovie(movie) }
+                        )
+                    }
                 }
             }
         }
@@ -189,49 +203,49 @@ fun MovieCard(
     onClick: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
-    Column(
+    Card(
         modifier = Modifier
-            .width(140.dp)
+            .fillMaxWidth()
+            .height(260.dp)
             .focusable()
             .onFocusChanged { isFocused = it.isFocused }
-            .clickable { onClick() }
+            .border(
+                width = if (isFocused) 3.dp else 1.dp,
+                color = if (isFocused) Color(0xFFFF9100) else Color(0xFF222C40),
+                shape = RoundedCornerShape(12.dp)
+            )
+            .clickable { onClick() },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isFocused) Color(0xFF1E283C) else Color(0xFF131926)
+        )
     ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(210.dp)
-                .border(
-                    width = if (isFocused) 3.dp else 1.dp,
-                    color = if (isFocused) Color(0xFF9C27B0) else Color(0xFF222C40),
-                    shape = RoundedCornerShape(12.dp)
-                ),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF131926))
-        ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                if (!movie.safeIcon.isNullOrBlank()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .background(Color(0xFF1A2234)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (!movie.streamIcon.isNullOrBlank()) {
                     AsyncImage(
-                        model = movie.safeIcon,
+                        model = ImageHelper.buildRequest(context, movie.streamIcon),
                         contentDescription = movie.name,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
                 } else {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Movie,
-                            contentDescription = null,
-                            tint = Color(0xFF9C27B0),
-                            modifier = Modifier.size(50.dp)
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Default.Movie,
+                        contentDescription = null,
+                        tint = Color(0xFFFF9100),
+                        modifier = Modifier.size(50.dp)
+                    )
                 }
 
-                // Badge de Avaliação no topo
                 if (!movie.rating.isNullOrBlank() && movie.rating != "0") {
                     Surface(
                         color = Color.Black.copy(alpha = 0.75f),
@@ -259,17 +273,21 @@ fun MovieCard(
                     }
                 }
             }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+            ) {
+                Text(
+                    text = movie.name,
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
-
-        Spacer(modifier = Modifier.height(6.dp))
-
-        Text(
-            text = movie.name,
-            color = if (isFocused) Color(0xFF9C27B0) else Color.White,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
     }
 }
