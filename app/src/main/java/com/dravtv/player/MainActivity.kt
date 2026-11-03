@@ -38,22 +38,41 @@ class MainActivity : ComponentActivity() {
                 var savedPass by remember { mutableStateOf("") }
                 var expiryDateFormatted by remember { mutableStateOf<String?>(null) }
 
+                // Parental Control State
+                var isParentalControlEnabled by remember { mutableStateOf(true) }
+                var parentalPin by remember { mutableStateOf("0000") }
+
+                fun isAdultCategory(name: String): Boolean {
+                    val lower = name.lowercase()
+                    return lower.contains("xxx") || lower.contains("adult") ||
+                           lower.contains("hot") || lower.contains("playboy") ||
+                           lower.contains("sexy") || lower.contains("venus") ||
+                           lower.contains("for adult")
+                }
+
+                fun filterCategories(categories: List<Category>): List<Category> {
+                    return if (!isParentalControlEnabled) categories
+                    else categories.filter { !isAdultCategory(it.categoryName) }
+                }
+
                 // Live TV State
-                var liveCategories by remember { mutableStateOf<List<Category>>(emptyList()) }
+                var rawLiveCategories by remember { mutableStateOf<List<Category>>(emptyList()) }
                 var liveChannels by remember { mutableStateOf<List<Channel>>(emptyList()) }
                 var selectedLiveCategoryId by remember { mutableStateOf<String?>(null) }
 
                 // VOD Movies State
-                var vodCategories by remember { mutableStateOf<List<Category>>(emptyList()) }
+                var rawVodCategories by remember { mutableStateOf<List<Category>>(emptyList()) }
                 var vodMovies by remember { mutableStateOf<List<VodMovie>>(emptyList()) }
                 var selectedVodCategoryId by remember { mutableStateOf<String?>(null) }
+                var isLoadingMovies by remember { mutableStateOf(false) }
 
                 // Series State
-                var seriesCategories by remember { mutableStateOf<List<Category>>(emptyList()) }
+                var rawSeriesCategories by remember { mutableStateOf<List<Category>>(emptyList()) }
                 var seriesList by remember { mutableStateOf<List<SeriesItem>>(emptyList()) }
                 var selectedSeriesCategoryId by remember { mutableStateOf<String?>(null) }
                 var selectedSeriesDetail by remember { mutableStateOf<SeriesItem?>(null) }
                 var currentEpisodes by remember { mutableStateOf<List<EpisodeItem>>(emptyList()) }
+                var isLoadingSeries by remember { mutableStateOf(false) }
                 var isLoadingEpisodes by remember { mutableStateOf(false) }
 
                 when (val screen = currentScreen) {
@@ -75,12 +94,13 @@ class MainActivity : ComponentActivity() {
                                                 sdf.format(Date(timestamp * 1000L))
                                             }
 
-                                            // Carrega categorias iniciais de canais
+                                            // Carrega categorias de canais
                                             val catRes = api.getLiveCategories(user, pass)
                                             if (catRes.isSuccessful) {
-                                                liveCategories = catRes.body() ?: emptyList()
-                                                if (liveCategories.isNotEmpty()) {
-                                                    selectedLiveCategoryId = liveCategories.first().categoryId
+                                                rawLiveCategories = catRes.body() ?: emptyList()
+                                                val filtered = filterCategories(rawLiveCategories)
+                                                if (filtered.isNotEmpty()) {
+                                                    selectedLiveCategoryId = filtered.first().categoryId
                                                 }
                                             }
 
@@ -110,37 +130,55 @@ class MainActivity : ComponentActivity() {
                                 }
                             },
                             onNavigateVod = {
+                                currentScreen = Screen.Vod
                                 lifecycleScope.launch {
-                                    val api = XtreamRepository.getApi(currentServerCode)
-                                    val catRes = api.getVodCategories(savedUser, savedPass)
-                                    if (catRes.isSuccessful) {
-                                        vodCategories = catRes.body() ?: emptyList()
-                                        if (vodCategories.isNotEmpty()) {
-                                            selectedVodCategoryId = vodCategories.first().categoryId
+                                    try {
+                                        val api = XtreamRepository.getApi(currentServerCode)
+                                        val catRes = api.getVodCategories(savedUser, savedPass)
+                                        if (catRes.isSuccessful) {
+                                            rawVodCategories = catRes.body() ?: emptyList()
+                                            val filtered = filterCategories(rawVodCategories)
+                                            val firstCat = filtered.firstOrNull()?.categoryId
+                                            selectedVodCategoryId = firstCat
+                                            if (firstCat != null) {
+                                                isLoadingMovies = true
+                                                val moviesRes = api.getVodStreams(savedUser, savedPass, categoryId = firstCat)
+                                                if (moviesRes.isSuccessful) {
+                                                    vodMovies = moviesRes.body() ?: emptyList()
+                                                }
+                                                isLoadingMovies = false
+                                            }
                                         }
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                        isLoadingMovies = false
                                     }
-                                    val moviesRes = api.getVodStreams(savedUser, savedPass)
-                                    if (moviesRes.isSuccessful) {
-                                        vodMovies = moviesRes.body() ?: emptyList()
-                                    }
-                                    currentScreen = Screen.Vod
                                 }
                             },
                             onNavigateSeries = {
+                                currentScreen = Screen.Series
                                 lifecycleScope.launch {
-                                    val api = XtreamRepository.getApi(currentServerCode)
-                                    val catRes = api.getSeriesCategories(savedUser, savedPass)
-                                    if (catRes.isSuccessful) {
-                                        seriesCategories = catRes.body() ?: emptyList()
-                                        if (seriesCategories.isNotEmpty()) {
-                                            selectedSeriesCategoryId = seriesCategories.first().categoryId
+                                    try {
+                                        val api = XtreamRepository.getApi(currentServerCode)
+                                        val catRes = api.getSeriesCategories(savedUser, savedPass)
+                                        if (catRes.isSuccessful) {
+                                            rawSeriesCategories = catRes.body() ?: emptyList()
+                                            val filtered = filterCategories(rawSeriesCategories)
+                                            val firstCat = filtered.firstOrNull()?.categoryId
+                                            selectedSeriesCategoryId = firstCat
+                                            if (firstCat != null) {
+                                                isLoadingSeries = true
+                                                val seriesRes = api.getSeries(savedUser, savedPass, categoryId = firstCat)
+                                                if (seriesRes.isSuccessful) {
+                                                    seriesList = seriesRes.body() ?: emptyList()
+                                                }
+                                                isLoadingSeries = false
+                                            }
                                         }
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                        isLoadingSeries = false
                                     }
-                                    val seriesRes = api.getSeries(savedUser, savedPass)
-                                    if (seriesRes.isSuccessful) {
-                                        seriesList = seriesRes.body() ?: emptyList()
-                                    }
-                                    currentScreen = Screen.Series
                                 }
                             },
                             onNavigateSettings = {
@@ -153,13 +191,14 @@ class MainActivity : ComponentActivity() {
                     }
 
                     is Screen.LiveTv -> {
+                        val activeCategories = filterCategories(rawLiveCategories)
                         val filteredChannels = remember(selectedLiveCategoryId, liveChannels) {
                             if (selectedLiveCategoryId == null) liveChannels
                             else liveChannels.filter { it.categoryId == selectedLiveCategoryId }
                         }
 
                         LiveTvScreen(
-                            categories = liveCategories,
+                            categories = activeCategories,
                             channels = filteredChannels,
                             selectedCategoryId = selectedLiveCategoryId,
                             onSelectCategory = { catId ->
@@ -182,17 +221,29 @@ class MainActivity : ComponentActivity() {
                     }
 
                     is Screen.Vod -> {
-                        val filteredMovies = remember(selectedVodCategoryId, vodMovies) {
-                            if (selectedVodCategoryId == null) vodMovies
-                            else vodMovies.filter { it.categoryId == selectedVodCategoryId }
-                        }
+                        val activeCategories = filterCategories(rawVodCategories)
 
                         VodScreen(
-                            categories = vodCategories,
-                            movies = filteredMovies,
+                            categories = activeCategories,
+                            movies = vodMovies,
+                            isLoadingMovies = isLoadingMovies,
                             selectedCategoryId = selectedVodCategoryId,
                             onSelectCategory = { catId ->
                                 selectedVodCategoryId = catId
+                                isLoadingMovies = true
+                                lifecycleScope.launch {
+                                    try {
+                                        val api = XtreamRepository.getApi(currentServerCode)
+                                        val moviesRes = api.getVodStreams(savedUser, savedPass, categoryId = catId)
+                                        if (moviesRes.isSuccessful) {
+                                            vodMovies = moviesRes.body() ?: emptyList()
+                                        }
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                    } finally {
+                                        isLoadingMovies = false
+                                    }
+                                }
                             },
                             onSelectMovie = { movie ->
                                 val streamUrl = XtreamRepository.buildVodStreamUrl(
@@ -211,17 +262,29 @@ class MainActivity : ComponentActivity() {
                     }
 
                     is Screen.Series -> {
-                        val filteredSeriesList = remember(selectedSeriesCategoryId, seriesList) {
-                            if (selectedSeriesCategoryId == null) seriesList
-                            else seriesList.filter { it.categoryId == selectedSeriesCategoryId }
-                        }
+                        val activeCategories = filterCategories(rawSeriesCategories)
 
                         SeriesScreen(
-                            categories = seriesCategories,
-                            seriesList = filteredSeriesList,
+                            categories = activeCategories,
+                            seriesList = seriesList,
+                            isLoadingSeries = isLoadingSeries,
                             selectedCategoryId = selectedSeriesCategoryId,
                             onSelectCategory = { catId ->
                                 selectedSeriesCategoryId = catId
+                                isLoadingSeries = true
+                                lifecycleScope.launch {
+                                    try {
+                                        val api = XtreamRepository.getApi(currentServerCode)
+                                        val seriesRes = api.getSeries(savedUser, savedPass, categoryId = catId)
+                                        if (seriesRes.isSuccessful) {
+                                            seriesList = seriesRes.body() ?: emptyList()
+                                        }
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                    } finally {
+                                        isLoadingSeries = false
+                                    }
+                                }
                             },
                             onSelectSeries = { series ->
                                 selectedSeriesDetail = series
@@ -289,12 +352,18 @@ class MainActivity : ComponentActivity() {
                             username = savedUser,
                             serverCode = currentServerCode,
                             expiryDate = expiryDateFormatted,
+                            isParentalControlEnabled = isParentalControlEnabled,
+                            onToggleParentalControl = { enabled, pin ->
+                                isParentalControlEnabled = enabled
+                                parentalPin = pin
+                            },
+                            parentalPin = parentalPin,
                             onRefreshServer = {
                                 lifecycleScope.launch {
                                     val api = XtreamRepository.getApi(currentServerCode)
                                     val catRes = api.getLiveCategories(savedUser, savedPass)
                                     if (catRes.isSuccessful) {
-                                        liveCategories = catRes.body() ?: emptyList()
+                                        rawLiveCategories = catRes.body() ?: emptyList()
                                     }
                                     val streamRes = api.getLiveStreams(savedUser, savedPass)
                                     if (streamRes.isSuccessful) {

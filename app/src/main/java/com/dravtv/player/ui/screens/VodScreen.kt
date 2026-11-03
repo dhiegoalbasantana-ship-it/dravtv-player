@@ -20,7 +20,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -36,6 +35,7 @@ import com.dravtv.player.data.model.VodMovie
 fun VodScreen(
     categories: List<Category>,
     movies: List<VodMovie>,
+    isLoadingMovies: Boolean,
     selectedCategoryId: String?,
     onSelectCategory: (String) -> Unit,
     onSelectMovie: (VodMovie) -> Unit,
@@ -103,11 +103,11 @@ fun VodScreen(
                             .clickable { onSelectCategory(category.categoryId) }
                             .border(
                                 width = if (isFocused) 2.dp else 0.dp,
-                                color = if (isFocused) Color(0xFF9C27B0) else Color.Transparent,
+                                color = if (isFocused) Color(0xFFFF9100) else Color.Transparent,
                                 shape = RoundedCornerShape(10.dp)
                             ),
                         color = when {
-                            isSelected -> Color(0xFF9C27B0)
+                            isSelected -> Color(0xFFFF9100)
                             isFocused -> Color(0xFF1D2638)
                             else -> Color(0xFF161E2E)
                         },
@@ -115,7 +115,7 @@ fun VodScreen(
                     ) {
                         Text(
                             text = category.categoryName,
-                            color = Color.White,
+                            color = if (isSelected) Color.Black else Color.White,
                             fontSize = 14.sp,
                             fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
@@ -153,30 +153,43 @@ fun VodScreen(
                     onValueChange = { searchQuery = it },
                     placeholder = { Text("Buscar filme...") },
                     leadingIcon = {
-                        Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF9C27B0))
+                        Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFFFF9100))
                     },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White,
-                        focusedBorderColor = Color(0xFF9C27B0),
+                        focusedBorderColor = Color(0xFFFF9100),
                         unfocusedBorderColor = Color(0xFF232D42)
                     ),
                     modifier = Modifier.width(300.dp)
                 )
             }
 
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 150.dp),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.fillMaxSize()
-            ) {
-                items(filteredMovies) { movie ->
-                    MovieCard(
-                        movie = movie,
-                        onClick = { onSelectMovie(movie) }
-                    )
+            if (isLoadingMovies) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator(color = Color(0xFFFF9100))
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text("Carregando filmes da categoria...", color = Color(0xFFCCCCCC), fontSize = 14.sp)
+                    }
+                }
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = 150.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    items(filteredMovies) { movie ->
+                        MovieCard(
+                            movie = movie,
+                            onClick = { onSelectMovie(movie) }
+                        )
+                    }
                 }
             }
         }
@@ -198,7 +211,7 @@ fun MovieCard(
             .onFocusChanged { isFocused = it.isFocused }
             .border(
                 width = if (isFocused) 3.dp else 1.dp,
-                color = if (isFocused) Color(0xFF9C27B0) else Color(0xFF222C40),
+                color = if (isFocused) Color(0xFFFF9100) else Color(0xFF222C40),
                 shape = RoundedCornerShape(12.dp)
             )
             .clickable { onClick() },
@@ -226,7 +239,7 @@ fun MovieCard(
                     Icon(
                         imageVector = Icons.Default.Movie,
                         contentDescription = null,
-                        tint = Color(0xFF9C27B0),
+                        tint = Color(0xFFFF9100),
                         modifier = Modifier.size(50.dp)
                     )
                 }

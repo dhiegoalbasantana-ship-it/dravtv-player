@@ -3,7 +3,6 @@ package com.dravtv.player.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,11 +12,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
@@ -31,6 +29,9 @@ fun SettingsScreen(
     username: String,
     serverCode: String,
     expiryDate: String?,
+    isParentalControlEnabled: Boolean,
+    onToggleParentalControl: (Boolean, String) -> Unit,
+    parentalPin: String,
     onRefreshServer: () -> Unit,
     onLogout: () -> Unit,
     onBack: () -> Unit
@@ -39,8 +40,11 @@ fun SettingsScreen(
     var isTestingSpeed by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
-    var selectedDecoder by remember { mutableStateOf("Hardware (Recomendado)") }
-    var selectedAspectRatio by remember { mutableStateOf("Ajustar à Tela (16:9)") }
+    var selectedPlayer by remember { mutableStateOf("ExoPlayer Oficial (Recomendado)") }
+    var isParentalActive by remember { mutableStateOf(isParentalControlEnabled) }
+    var showPinDialog by remember { mutableStateOf(false) }
+    var enteredPin by remember { mutableStateOf("") }
+    var pinError by remember { mutableStateOf<String?>(null) }
 
     Row(
         modifier = Modifier
@@ -48,11 +52,10 @@ fun SettingsScreen(
             .background(Color(0xFF090D14))
             .padding(24.dp)
     ) {
-        // Coluna Principal
         Column(modifier = Modifier.fillMaxSize()) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(bottom = 24.dp)
+                modifier = Modifier.padding(bottom = 20.dp)
             ) {
                 IconButton(
                     onClick = onBack,
@@ -74,54 +77,51 @@ fun SettingsScreen(
             }
 
             LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // Item 1: Dados da Conta
+                // Item 1: Controle dos Pais (Canais Adultos)
                 item {
                     SettingsCard(
-                        title = "Informações da Assinatura",
-                        icon = Icons.Default.AccountCircle,
-                        accentColor = Color(0xFF00E5FF)
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("Usuário: $username", color = Color.White, fontSize = 14.sp)
-                            Text("Rota Ativa: $serverCode", color = Color.White, fontSize = 14.sp)
-                            Text("Validade: ${expiryDate ?: "Ativo"}", color = Color(0xFF00E5FF), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                            Text("Status da Conta: Ativa • Conexões: 1", color = Color(0xFF8B949E), fontSize = 13.sp)
-                        }
-                    }
-                }
-
-                // Item 2: Atualizar Dados do Servidor
-                item {
-                    SettingsCard(
-                        title = "Atualizar Listas e Conteúdo",
-                        icon = Icons.Default.Sync,
-                        accentColor = Color(0xFFFF9100)
+                        title = "Controle dos Pais (Bloqueio de Conteúdo Adulto)",
+                        icon = Icons.Default.Security,
+                        accentColor = Color(0xFFFF5252)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                "Recarrega canais, novos filmes e episódios direto do servidor.",
-                                color = Color(0xFFCCCCCC),
-                                fontSize = 13.sp,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Button(
-                                onClick = onRefreshServer,
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9100))
-                            ) {
-                                Text("Atualizar Agora", fontWeight = FontWeight.Bold)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "Oculta categorias e canais adultos (XXX) exigindo senha PIN.",
+                                    color = Color(0xFFCCCCCC),
+                                    fontSize = 13.sp
+                                )
+                                Text(
+                                    text = if (isParentalActive) "Status: ATIVADO (Canais Adultos Ocultos)" else "Status: DESATIVADO (Todos os canais visíveis)",
+                                    color = if (isParentalActive) Color(0xFF00E676) else Color(0xFFFF9100),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
                             }
+
+                            Switch(
+                                checked = isParentalActive,
+                                onCheckedChange = {
+                                    showPinDialog = true
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = Color(0xFFFF5252)
+                                )
+                            )
                         }
                     }
                 }
 
-                // Item 3: Teste de Velocidade
+                // Item 2: Teste de Velocidade
                 item {
                     SettingsCard(
                         title = "Teste de Velocidade de Conexão",
@@ -135,7 +135,7 @@ fun SettingsScreen(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    "Mede o ping e a taxa de transferência para streaming estável.",
+                                    "Mede o ping e a taxa de resposta com o servidor DravTV.",
                                     color = Color(0xFFCCCCCC),
                                     fontSize = 13.sp
                                 )
@@ -144,7 +144,7 @@ fun SettingsScreen(
                                     Text(
                                         text = speedTestResult ?: "",
                                         color = Color(0xFF00E676),
-                                        fontSize = 15.sp,
+                                        fontSize = 14.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
@@ -154,10 +154,9 @@ fun SettingsScreen(
                                 onClick = {
                                     if (!isTestingSpeed) {
                                         isTestingSpeed = true
-                                        speedTestResult = "Testando conexão..."
+                                        speedTestResult = "Testando rota..."
                                         coroutineScope.launch {
-                                            val result = runSpeedTest()
-                                            speedTestResult = result
+                                            speedTestResult = runSpeedTest()
                                             isTestingSpeed = false
                                         }
                                     }
@@ -167,32 +166,73 @@ fun SettingsScreen(
                                 if (isTestingSpeed) {
                                     CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(20.dp))
                                 } else {
-                                    Text("Iniciar Teste", color = Color.Black, fontWeight = FontWeight.Bold)
+                                    Text("Testar Rota", color = Color.Black, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
                     }
                 }
 
-                // Item 4: Configuração do Player
+                // Item 3: Mudança de Player
                 item {
                     SettingsCard(
-                        title = "Configurações do Player de Vídeo",
+                        title = "Mudança e Configuração de Player",
                         icon = Icons.Default.PlayCircle,
-                        accentColor = Color(0xFF9C27B0)
+                        accentColor = Color(0xFF00E5FF)
                     ) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("Decodificador de Vídeo: $selectedDecoder", color = Color.White, fontSize = 14.sp)
-                            Text("Proporção de Tela Padrão: $selectedAspectRatio", color = Color.White, fontSize = 14.sp)
-                            Text("Aceleração de hardware Media3 ativada para 60fps.", color = Color(0xFF8B949E), fontSize = 12.sp)
+                            Text("Selecione o motor de reprodução:", color = Color.White, fontSize = 13.sp)
+                            val playerOptions = listOf("ExoPlayer Oficial (Recomendado)", "Player Baixa Latência (TV)", "Modo Compatibilidade")
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                playerOptions.forEach { opt ->
+                                    val isSel = selectedPlayer == opt
+                                    Button(
+                                        onClick = { selectedPlayer = opt },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (isSel) Color(0xFF00E5FF) else Color(0xFF1E2638)
+                                        ),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text(opt, color = if (isSel) Color.Black else Color.White, fontSize = 12.sp)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
 
-                // Item 5: Fazer Logoff
+                // Item 4: Atualizar Servidor
                 item {
                     SettingsCard(
-                        title = "Desconectar / Fazer Logoff",
+                        title = "Atualização do Servidor",
+                        icon = Icons.Default.Sync,
+                        accentColor = Color(0xFFFF9100)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Sincroniza imediatamente novas categorias, filmes e canais.",
+                                color = Color(0xFFCCCCCC),
+                                fontSize = 13.sp,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Button(
+                                onClick = onRefreshServer,
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9100))
+                            ) {
+                                Text("Sincronizar", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                // Item 5: Sair / Fazer Logoff
+                item {
+                    SettingsCard(
+                        title = "Sair da Conta (Fazer Logoff)",
                         icon = Icons.Default.ExitToApp,
                         accentColor = Color(0xFFFF5252)
                     ) {
@@ -202,7 +242,7 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                "Sai da sua conta e volta para a tela de login por código.",
+                                "Desconecta e volta para a tela inicial de código.",
                                 color = Color(0xFFCCCCCC),
                                 fontSize = 13.sp
                             )
@@ -210,12 +250,79 @@ fun SettingsScreen(
                                 onClick = onLogout,
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252))
                             ) {
-                                Text("Sair da Conta", fontWeight = FontWeight.Bold)
+                                Text("Desconectar", fontWeight = FontWeight.Bold)
                             }
                         }
                     }
                 }
             }
+        }
+
+        // Dialog de Senha PIN do Controle dos Pais
+        if (showPinDialog) {
+            AlertDialog(
+                onDismissRequest = {
+                    showPinDialog = false
+                    enteredPin = ""
+                    pinError = null
+                },
+                title = { Text("Controle dos Pais", color = Color.White) },
+                text = {
+                    Column {
+                        Text(
+                            "Digite o PIN de 4 dígitos para ${if (isParentalActive) "desativar" else "ativar"} o bloqueio de canais adultos:",
+                            color = Color(0xFFCCCCCC),
+                            fontSize = 13.sp
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        OutlinedTextField(
+                            value = enteredPin,
+                            onValueChange = { if (it.length <= 4) enteredPin = it },
+                            label = { Text("PIN (Padrão: 0000)") },
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = Color(0xFFFF5252)
+                            )
+                        )
+                        if (pinError != null) {
+                            Text(pinError ?: "", color = Color(0xFFFF5252), fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            val targetPin = if (parentalPin.isBlank()) "0000" else parentalPin
+                            if (enteredPin == targetPin) {
+                                val newState = !isParentalActive
+                                isParentalActive = newState
+                                onToggleParentalControl(newState, targetPin)
+                                showPinDialog = false
+                                enteredPin = ""
+                                pinError = null
+                            } else {
+                                pinError = "PIN incorreto!"
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252))
+                    ) {
+                        Text("Confirmar")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        showPinDialog = false
+                        enteredPin = ""
+                        pinError = null
+                    }) {
+                        Text("Cancelar", color = Color.White)
+                    }
+                },
+                containerColor = Color(0xFF161E2E)
+            )
         }
     }
 }

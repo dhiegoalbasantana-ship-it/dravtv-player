@@ -37,6 +37,7 @@ import com.dravtv.player.data.model.SeriesItem
 fun SeriesScreen(
     categories: List<Category>,
     seriesList: List<SeriesItem>,
+    isLoadingSeries: Boolean,
     selectedCategoryId: String?,
     onSelectCategory: (String) -> Unit,
     onSelectSeries: (SeriesItem) -> Unit,
@@ -87,7 +88,7 @@ fun SeriesScreen(
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        text = "Categorias de Séries",
+                        text = "Gêneros de Séries",
                         color = Color.White,
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold
@@ -110,11 +111,11 @@ fun SeriesScreen(
                                 .clickable { onSelectCategory(category.categoryId) }
                                 .border(
                                     width = if (isFocused) 2.dp else 0.dp,
-                                    color = if (isFocused) Color(0xFFFFB300) else Color.Transparent,
+                                    color = if (isFocused) Color(0xFF00E5FF) else Color.Transparent,
                                     shape = RoundedCornerShape(10.dp)
                                 ),
                             color = when {
-                                isSelected -> Color(0xFFFFB300)
+                                isSelected -> Color(0xFF00E5FF)
                                 isFocused -> Color(0xFF1D2638)
                                 else -> Color(0xFF161E2E)
                             },
@@ -159,30 +160,43 @@ fun SeriesScreen(
                         onValueChange = { searchQuery = it },
                         placeholder = { Text("Buscar série...") },
                         leadingIcon = {
-                            Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFFFFB300))
+                            Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF00E5FF))
                         },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color(0xFFFFB300),
+                            focusedBorderColor = Color(0xFF00E5FF),
                             unfocusedBorderColor = Color(0xFF232D42)
                         ),
                         modifier = Modifier.width(300.dp)
                     )
                 }
 
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 150.dp),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    items(filteredSeries) { series ->
-                        SeriesCard(
-                            series = series,
-                            onClick = { onSelectSeries(series) }
-                        )
+                if (isLoadingSeries) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(color = Color(0xFF00E5FF))
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text("Carregando séries da categoria...", color = Color(0xFFCCCCCC), fontSize = 14.sp)
+                        }
+                    }
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 150.dp),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(filteredSeries) { series ->
+                            SeriesCard(
+                                series = series,
+                                onClick = { onSelectSeries(series) }
+                            )
+                        }
                     }
                 }
             }
@@ -204,7 +218,7 @@ fun SeriesScreen(
                         .clickable(enabled = false) {},
                     colors = CardDefaults.cardColors(containerColor = Color(0xFF131A26)),
                     shape = RoundedCornerShape(20.dp),
-                    border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Color(0xFFFFB300)))
+                    border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Color(0xFF00E5FF)))
                 ) {
                     Column(
                         modifier = Modifier
@@ -226,7 +240,7 @@ fun SeriesScreen(
                                 if (!selectedSeries.genre.isNullOrBlank()) {
                                     Text(
                                         text = selectedSeries.genre,
-                                        color = Color(0xFFFFB300),
+                                        color = Color(0xFF00E5FF),
                                         fontSize = 13.sp
                                     )
                                 }
@@ -266,7 +280,7 @@ fun SeriesScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 contentAlignment = Alignment.Center
                             ) {
-                                CircularProgressIndicator(color = Color(0xFFFFB300))
+                                CircularProgressIndicator(color = Color(0xFF00E5FF))
                             }
                         } else {
                             LazyColumn(
@@ -284,7 +298,7 @@ fun SeriesScreen(
                                             .clickable { onPlayEpisode(ep) }
                                             .border(
                                                 width = if (isEpFocused) 2.dp else 1.dp,
-                                                color = if (isEpFocused) Color(0xFFFFB300) else Color(0xFF232D42),
+                                                color = if (isEpFocused) Color(0xFF00E5FF) else Color(0xFF232D42),
                                                 shape = RoundedCornerShape(10.dp)
                                             ),
                                         shape = RoundedCornerShape(10.dp),
@@ -303,7 +317,7 @@ fun SeriesScreen(
                                                 Icon(
                                                     imageVector = Icons.Default.PlayArrow,
                                                     contentDescription = null,
-                                                    tint = Color(0xFFFFB300),
+                                                    tint = Color(0xFF00E5FF),
                                                     modifier = Modifier.size(24.dp)
                                                 )
                                                 Spacer(modifier = Modifier.width(12.dp))
@@ -317,7 +331,7 @@ fun SeriesScreen(
 
                                             Text(
                                                 text = "Assistir",
-                                                color = Color(0xFFFFB300),
+                                                color = Color(0xFF00E5FF),
                                                 fontSize = 12.sp,
                                                 fontWeight = FontWeight.Bold
                                             )
@@ -348,7 +362,7 @@ fun SeriesCard(
             .onFocusChanged { isFocused = it.isFocused }
             .border(
                 width = if (isFocused) 3.dp else 1.dp,
-                color = if (isFocused) Color(0xFFFFB300) else Color(0xFF222C40),
+                color = if (isFocused) Color(0xFF00E5FF) else Color(0xFF222C40),
                 shape = RoundedCornerShape(12.dp)
             )
             .clickable { onClick() },
@@ -376,7 +390,7 @@ fun SeriesCard(
                     Icon(
                         imageVector = Icons.Default.Tv,
                         contentDescription = null,
-                        tint = Color(0xFFFFB300),
+                        tint = Color(0xFF00E5FF),
                         modifier = Modifier.size(50.dp)
                     )
                 }
