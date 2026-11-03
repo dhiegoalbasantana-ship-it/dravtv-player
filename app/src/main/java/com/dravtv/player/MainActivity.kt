@@ -3,13 +3,27 @@ package com.dravtv.player
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import com.dravtv.player.data.api.XtreamRepository
 import com.dravtv.player.data.model.*
 import com.dravtv.player.ui.player.PlayerScreen
 import com.dravtv.player.ui.screens.*
 import com.dravtv.player.ui.theme.DravTVTheme
+import com.dravtv.player.util.SessionManager
 import com.dravtv.player.util.WatchProgressManager
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
@@ -18,6 +32,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 sealed class Screen {
+    object Splash : Screen()
     object Login : Screen()
     object Home : Screen()
     object LiveTv : Screen()
@@ -40,12 +55,19 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             DravTVTheme {
-                var currentScreen by remember { mutableStateOf<Screen>(Screen.Login) }
+                val lastSession = remember { SessionManager.getLastLogin(this@MainActivity) }
 
-                var currentServerCode by remember { mutableStateOf("4100") }
-                var savedUser by remember { mutableStateOf("") }
-                var savedPass by remember { mutableStateOf("") }
-                var expiryDateFormatted by remember { mutableStateOf<String?>(null) }
+                var currentScreen by remember {
+                    mutableStateOf<Screen>(
+                        if (lastSession.isLoggedIn && lastSession.username.isNotBlank()) Screen.Splash
+                        else Screen.Login
+                    )
+                }
+
+                var currentServerCode by remember { mutableStateOf(lastSession.serverCode) }
+                var savedUser by remember { mutableStateOf(lastSession.username) }
+                var savedPass by remember { mutableStateOf(lastSession.password) }
+                var expiryDateFormatted by remember { mutableStateOf(lastSession.expiryDate) }
 
                 // Parental Control State
                 var isParentalControlEnabled by remember { mutableStateOf(true) }
@@ -85,8 +107,97 @@ class MainActivity : ComponentActivity() {
                 var isLoadingEpisodes by remember { mutableStateOf(false) }
 
                 when (val screen = currentScreen) {
+                    is Screen.Splash -> {
+                        // Tela de Conexão Automática (Lembrar Login)
+                        LaunchedEffect(Unit) {
+                            try {
+                                val api = XtreamRepository.getApi(lastSession.serverCode)
+                                val authRes = api.login(lastSession.username, lastSession.password)
+                                if (authRes.isSuccessful && authRes.body()?.userInfo?.auth == 1) {
+                                    currentServerCode = lastSession.serverCode
+                                    savedUser = lastSession.username
+                                    savedPass = lastSession.password
+
+                                    val rawExp = authRes.body()?.userInfo?.expDate
+                                    expiryDateFormatted = rawExp?.toLongOrNull()?.let { timestamp ->
+                                        val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+                                        sdf.format(Date(timestamp * 1000L))
+                                    }
+
+                                    // Atualiza a sessão persistida com a nova validade
+                                    SessionManager.saveSession(
+                                        this@MainActivity,
+                                        currentServerCode,
+                                        savedUser,
+                                        savedPass,
+                                        expiryDateFormatted
+                                    )
+
+                                    // Carrega categorias de canais
+                                    val catRes = api.getLiveCategories(savedUser, savedPass)
+                                    if (catRes.isSuccessful) {
+                                        rawLiveCategories = catRes.body() ?: emptyList()
+                                        val filtered = filterCategories(rawLiveCategories)
+                                        if (filtered.isNotEmpty()) {
+                                            selectedLiveCategoryId = filtered.first().categoryId
+                                        }
+                                    }
+
+                                    currentScreen = Screen.Home
+                                } else {
+                                    // Falha na autenticação -> vai para a tela de login
+                                    currentServerCode = lastSession.serverCode
+                                    savedUser = lastSession.username
+                                    savedPass = lastSession.password
+                                    currentScreen = Screen.Login
+                                }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                                currentServerCode = lastSession.serverCode
+                                savedUser = lastSession.username
+                                savedPass = lastSession.password
+                                currentScreen = Screen.Login
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.radialGradient(
+                                        colors = listOf(Color(0xFF161F30), Color(0xFF090D14)),
+                                        radius = 1200f
+                                    )
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Image(
+                                    painter = painterResource(id = R.drawable.logo_dravtv_3d),
+                                    contentDescription = "DravTV",
+                                    modifier = Modifier.height(110.dp)
+                                )
+                                Spacer(modifier = Modifier.height(24.dp))
+                                CircularProgressIndicator(
+                                    color = Color(0xFFFF9100),
+                                    modifier = Modifier.size(36.dp)
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    text = "Conectando ao DravTV...",
+                                    color = Color.White,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+
                     is Screen.Login -> {
                         LoginScreen(
+                            initialServerCode = currentServerCode.ifBlank { lastSession.serverCode },
+                            initialUser = savedUser.ifBlank { lastSession.username },
+                            initialPass = savedPass.ifBlank { lastSession.password },
                             onLoginSuccess = { serverCode, user, pass ->
                                 currentServerCode = serverCode
                                 savedUser = user
@@ -102,6 +213,15 @@ class MainActivity : ComponentActivity() {
                                                 val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
                                                 sdf.format(Date(timestamp * 1000L))
                                             }
+
+                                            // Salva a sessão para entrar automaticamente nas próximas vezes
+                                            SessionManager.saveSession(
+                                                this@MainActivity,
+                                                serverCode,
+                                                user,
+                                                pass,
+                                                expiryDateFormatted
+                                            )
 
                                             // Carrega categorias de canais
                                             val catRes = api.getLiveCategories(user, pass)
@@ -194,6 +314,7 @@ class MainActivity : ComponentActivity() {
                                 currentScreen = Screen.Settings
                             },
                             onLogout = {
+                                SessionManager.clearSession(this@MainActivity)
                                 currentScreen = Screen.Login
                             }
                         )
@@ -423,6 +544,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             },
                             onLogout = {
+                                SessionManager.clearSession(this@MainActivity)
                                 currentScreen = Screen.Login
                             },
                             onBack = {

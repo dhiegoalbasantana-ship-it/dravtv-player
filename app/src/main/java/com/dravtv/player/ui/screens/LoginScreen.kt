@@ -26,11 +26,14 @@ import com.dravtv.player.R
 
 @Composable
 fun LoginScreen(
+    initialServerCode: String = "4100",
+    initialUser: String = "",
+    initialPass: String = "",
     onLoginSuccess: (serverCode: String, user: String, pass: String) -> Unit
 ) {
-    var serverCode by remember { mutableStateOf("4100") }
-    var user by remember { mutableStateOf("") }
-    var pass by remember { mutableStateOf("") }
+    var serverCode by remember { mutableStateOf(if (initialServerCode.isNotBlank()) initialServerCode else "4100") }
+    var user by remember { mutableStateOf(initialUser) }
+    var pass by remember { mutableStateOf(initialPass) }
     var isPasswordVisible by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
