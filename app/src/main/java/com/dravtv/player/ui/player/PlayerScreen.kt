@@ -2,6 +2,7 @@ package com.dravtv.player.ui.player
 
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -33,7 +34,9 @@ import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
+import androidx.media3.ui.SubtitleView
 
 data class AudioTrackOption(
     val group: Tracks.Group,
@@ -83,19 +86,30 @@ fun PlayerScreen(
         }
     }
 
-    // Processa faixas de Áudio disponíveis
+    // Processa faixas de Áudio disponíveis com nomes claros (Dublado / Original / Dual)
     val audioOptions = remember(currentTracks) {
         val list = mutableListOf<AudioTrackOption>()
+        var count = 0
         currentTracks?.groups?.filter { it.type == C.TRACK_TYPE_AUDIO }?.forEach { group ->
             for (i in 0 until group.length) {
                 val format = group.getTrackFormat(i)
-                val lang = format.language?.uppercase() ?: "Áudio"
-                val name = format.label ?: if (format.channelCount > 0) "$lang (${format.channelCount}ch)" else "$lang [Faixa ${i + 1}]"
+                count++
+                val lang = format.language?.lowercase()
+                val friendlyName = when {
+                    lang == "por" || lang == "pt" -> "Português (Dublado)"
+                    lang == "eng" || lang == "en" -> "Inglês (Original)"
+                    lang == "spa" || lang == "es" -> "Espanhol"
+                    !format.label.isNullOrBlank() -> format.label!!
+                    count == 1 -> "Áudio 1 - Principal (Dublado)"
+                    count == 2 -> "Áudio 2 - Secundário (Dual Áudio / Original)"
+                    else -> "Faixa de Áudio $count"
+                }
+
                 list.add(
                     AudioTrackOption(
                         group = group,
                         trackIndex = i,
-                        label = name,
+                        label = friendlyName,
                         isSelected = group.isTrackSelected(i)
                     )
                 )
@@ -104,33 +118,44 @@ fun PlayerScreen(
         list
     }
 
-    // Processa faixas de Legendas disponíveis
+    // Processa faixas de Legendas disponíveis (Dual Legenda / Closed Caption)
     val subtitleOptions = remember(currentTracks) {
         val list = mutableListOf<SubtitleTrackOption>()
-        // Opção Desativar Legendas
         val hasAnySelected = currentTracks?.groups?.filter { it.type == C.TRACK_TYPE_TEXT }?.any { group ->
             (0 until group.length).any { group.isTrackSelected(it) }
         } ?: false
 
+        // Opção padrão de Desativar
         list.add(
             SubtitleTrackOption(
                 group = null,
                 trackIndex = -1,
-                label = "Desativada",
+                label = "Desativar Legendas",
                 isSelected = !hasAnySelected
             )
         )
 
+        var count = 0
         currentTracks?.groups?.filter { it.type == C.TRACK_TYPE_TEXT }?.forEach { group ->
             for (i in 0 until group.length) {
                 val format = group.getTrackFormat(i)
-                val lang = format.language?.uppercase() ?: "Legenda"
-                val name = format.label ?: "$lang [Faixa ${i + 1}]"
+                count++
+                val lang = format.language?.lowercase()
+                val friendlyName = when {
+                    lang == "por" || lang == "pt" -> "Português"
+                    lang == "eng" || lang == "en" -> "Inglês (Original)"
+                    lang == "spa" || lang == "es" -> "Espanhol"
+                    !format.label.isNullOrBlank() -> format.label!!
+                    count == 1 -> "Legenda 1 (Português)"
+                    count == 2 -> "Legenda 2 (Inglês / Original)"
+                    else -> "Legenda $count"
+                }
+
                 list.add(
                     SubtitleTrackOption(
                         group = group,
                         trackIndex = i,
-                        label = name,
+                        label = friendlyName,
                         isSelected = group.isTrackSelected(i)
                     )
                 )
@@ -144,11 +169,29 @@ fun PlayerScreen(
             .fillMaxSize()
             .background(Color.Black)
     ) {
+        // Player com renderizador de legendas estilizadas
         AndroidView(
             factory = { ctx ->
                 PlayerView(ctx).apply {
                     player = exoPlayer
                     useController = true
+
+                    subtitleView?.apply {
+                        setUserDefaultStyle()
+                        setFixedTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 24f)
+                        setStyle(
+                            CaptionStyleCompat(
+                                android.graphics.Color.WHITE,
+                                android.graphics.Color.argb(160, 0, 0, 0),
+                                android.graphics.Color.TRANSPARENT,
+                                CaptionStyleCompat.EDGE_TYPE_OUTLINE,
+                                android.graphics.Color.BLACK,
+                                null
+                            )
+                        )
+                        setBottomPaddingFraction(0.08f)
+                    }
+
                     layoutParams = FrameLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT
@@ -158,7 +201,7 @@ fun PlayerScreen(
             modifier = Modifier.fillMaxSize()
         )
 
-        // Overlay Superior com Controles Rápidos
+        // Overlay Superior de Controles (Voltar, Trocar Áudio e Trocar Legenda)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -168,9 +211,18 @@ fun PlayerScreen(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                var isBackFocused by remember { mutableStateOf(false) }
                 IconButton(
                     onClick = onBack,
-                    modifier = Modifier.background(Color.Black.copy(alpha = 0.65f), androidx.compose.foundation.shape.CircleShape)
+                    modifier = Modifier
+                        .focusable()
+                        .onFocusChanged { isBackFocused = it.isFocused }
+                        .border(
+                            width = if (isBackFocused) 2.dp else 0.dp,
+                            color = if (isBackFocused) Color(0xFF00E5FF) else Color.Transparent,
+                            shape = androidx.compose.foundation.shape.CircleShape
+                        )
+                        .background(Color.Black.copy(alpha = 0.75f), androidx.compose.foundation.shape.CircleShape)
                 ) {
                     Icon(
                         imageVector = Icons.Default.ArrowBack,
@@ -189,12 +241,21 @@ fun PlayerScreen(
                 )
             }
 
-            // Botões de Áudio e Legenda
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Botão de Áudio (Dublado / Original / Dual)
+            // Botões de Áudio e Legenda com suporte a D-pad (Controle Remoto)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                // Botão de Áudio (Dual Áudio)
+                var isAudioFocused by remember { mutableStateOf(false) }
                 Button(
                     onClick = { showAudioDialog = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Black.copy(alpha = 0.65f)),
+                    modifier = Modifier
+                        .focusable()
+                        .onFocusChanged { isAudioFocused = it.isFocused }
+                        .border(
+                            width = if (isAudioFocused) 2.dp else 0.dp,
+                            color = if (isAudioFocused) Color(0xFF00E5FF) else Color.Transparent,
+                            shape = RoundedCornerShape(8.dp)
+                        ),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Black.copy(alpha = 0.75f)),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Icon(
@@ -204,13 +265,27 @@ fun PlayerScreen(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Áudio", fontSize = 12.sp, color = Color.White)
+                    Text(
+                        if (audioOptions.size > 1) "Áudio (Dual)" else "Áudio",
+                        fontSize = 12.sp,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
 
-                // Botão de Legendas
+                // Botão de Legendas (Dual Legenda)
+                var isSubFocused by remember { mutableStateOf(false) }
                 Button(
                     onClick = { showSubtitleDialog = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Black.copy(alpha = 0.65f)),
+                    modifier = Modifier
+                        .focusable()
+                        .onFocusChanged { isSubFocused = it.isFocused }
+                        .border(
+                            width = if (isSubFocused) 2.dp else 0.dp,
+                            color = if (isSubFocused) Color(0xFFFF9100) else Color.Transparent,
+                            shape = RoundedCornerShape(8.dp)
+                        ),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Black.copy(alpha = 0.75f)),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Icon(
@@ -220,28 +295,39 @@ fun PlayerScreen(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Legenda", fontSize = 12.sp, color = Color.White)
+                    Text(
+                        "Legenda",
+                        fontSize = 12.sp,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
 
-        // Modal Seleção de Áudio
+        // Modal Seleção de Áudio (Dublado / Original / Dual)
         if (showAudioDialog) {
             AlertDialog(
                 onDismissRequest = { showAudioDialog = false },
-                title = { Text("Selecionar Faixa de Áudio", color = Color.White, fontWeight = FontWeight.Bold) },
+                title = {
+                    Text(
+                        "Selecionar Idioma / Áudio",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 text = {
                     if (audioOptions.isEmpty()) {
-                        Text("Apenas 1 faixa de áudio disponível.", color = Color.Gray)
+                        Text("Este canal/filme possui apenas 1 faixa de áudio.", color = Color.Gray)
                     } else {
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             itemsIndexed(audioOptions) { _, item ->
-                                var isFocused by remember { mutableStateOf(false) }
+                                var isItemFocused by remember { mutableStateOf(false) }
                                 Surface(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .focusable()
-                                        .onFocusChanged { isFocused = it.isFocused }
+                                        .onFocusChanged { isItemFocused = it.isFocused }
                                         .clickable {
                                             exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters
                                                 .buildUpon()
@@ -249,18 +335,19 @@ fun PlayerScreen(
                                                     TrackSelectionOverride(item.group.mediaTrackGroup, item.trackIndex)
                                                 )
                                                 .build()
+                                            Toast.makeText(context, "Áudio: ${item.label}", Toast.LENGTH_SHORT).show()
                                             showAudioDialog = false
                                         }
                                         .border(
-                                            width = if (isFocused) 2.dp else 0.dp,
-                                            color = if (isFocused) Color(0xFF00E5FF) else Color.Transparent,
+                                            width = if (isItemFocused) 2.dp else 0.dp,
+                                            color = if (isItemFocused) Color(0xFF00E5FF) else Color.Transparent,
                                             shape = RoundedCornerShape(8.dp)
                                         ),
                                     color = if (item.isSelected) Color(0xFF00E5FF) else Color(0xFF1E2638),
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
                                     Text(
-                                        text = item.label + if (item.isSelected) " (Ativo)" else "",
+                                        text = item.label + if (item.isSelected) " (Em Reprodução)" else "",
                                         color = if (item.isSelected) Color.Black else Color.White,
                                         fontWeight = if (item.isSelected) FontWeight.Bold else FontWeight.Normal,
                                         modifier = Modifier.padding(14.dp)
@@ -279,52 +366,64 @@ fun PlayerScreen(
             )
         }
 
-        // Modal Seleção de Legendas
+        // Modal Seleção de Legendas (Dual Legenda / CC)
         if (showSubtitleDialog) {
             AlertDialog(
                 onDismissRequest = { showSubtitleDialog = false },
-                title = { Text("Selecionar Legendas", color = Color.White, fontWeight = FontWeight.Bold) },
+                title = {
+                    Text(
+                        "Selecionar Legenda",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 text = {
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        itemsIndexed(subtitleOptions) { _, item ->
-                            var isFocused by remember { mutableStateOf(false) }
-                            Surface(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .focusable()
-                                    .onFocusChanged { isFocused = it.isFocused }
-                                    .clickable {
-                                        if (item.group == null) {
-                                            // Desativa legendas
-                                            exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters
+                    if (subtitleOptions.size <= 1) {
+                        Text("Nenhuma legenda externa ou embutida foi detectada nesta transmissão.", color = Color.Gray)
+                    } else {
+                        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            itemsIndexed(subtitleOptions) { _, item ->
+                                var isItemFocused by remember { mutableStateOf(false) }
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .focusable()
+                                        .onFocusChanged { isItemFocused = it.isFocused }
+                                        .clickable {
+                                            if (item.group == null) {
+                                                // Desativa legendas
+                                                exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters
                                                 .buildUpon()
                                                 .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
                                                 .build()
-                                        } else {
-                                            exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters
+                                                Toast.makeText(context, "Legendas desativadas", Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters
                                                 .buildUpon()
                                                 .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
                                                 .setOverrideForType(
                                                     TrackSelectionOverride(item.group.mediaTrackGroup, item.trackIndex)
                                                 )
                                                 .build()
+                                                Toast.makeText(context, "Legenda: ${item.label}", Toast.LENGTH_SHORT).show()
+                                            }
+                                            showSubtitleDialog = false
                                         }
-                                        showSubtitleDialog = false
-                                    }
-                                    .border(
-                                        width = if (isFocused) 2.dp else 0.dp,
-                                        color = if (isFocused) Color(0xFFFF9100) else Color.Transparent,
-                                        shape = RoundedCornerShape(8.dp)
-                                    ),
-                                color = if (item.isSelected) Color(0xFFFF9100) else Color(0xFF1E2638),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text(
-                                    text = item.label + if (item.isSelected) " (Ativo)" else "",
-                                    color = if (item.isSelected) Color.Black else Color.White,
-                                    fontWeight = if (item.isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    modifier = Modifier.padding(14.dp)
-                                )
+                                        .border(
+                                            width = if (isItemFocused) 2.dp else 0.dp,
+                                            color = if (isItemFocused) Color(0xFFFF9100) else Color.Transparent,
+                                            shape = RoundedCornerShape(8.dp)
+                                        ),
+                                    color = if (item.isSelected) Color(0xFFFF9100) else Color(0xFF1E2638),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        text = item.label + if (item.isSelected) " (Ativa)" else "",
+                                        color = if (item.isSelected) Color.Black else Color.White,
+                                        fontWeight = if (item.isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        modifier = Modifier.padding(14.dp)
+                                    )
+                                }
                             }
                         }
                     }
