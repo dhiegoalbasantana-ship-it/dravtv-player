@@ -15,11 +15,12 @@
         android:required="false" />
 
     <application
+        android:name=".DravTvApp"
         android:allowBackup="true"
-        android:icon="@drawable/logo_dravtv_3d"
+        android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:banner="@drawable/banner_dravtv"
-        android:roundIcon="@drawable/logo_dravtv_3d"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.DravTV"
         android:usesCleartextTraffic="true">

@@ -7,7 +7,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,10 +21,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dravtv.player.R
+import com.dravtv.player.data.api.XtreamRepository
+import com.dravtv.player.ui.theme.*
 
 @Composable
 fun LoginScreen(
@@ -31,7 +34,6 @@ fun LoginScreen(
     var serverCode by remember { mutableStateOf("4100") }
     var user by remember { mutableStateOf("") }
     var pass by remember { mutableStateOf("") }
-    var isPasswordVisible by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
@@ -69,20 +71,20 @@ fun LoginScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(26.dp),
+                    .padding(28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Logo Oficial 3D DravTV
+                // Logo 3D DravTV
                 Image(
                     painter = painterResource(id = R.drawable.logo_dravtv_3d),
                     contentDescription = "DravTV Logo",
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
-                        .height(100.dp)
+                        .height(110.dp)
                         .clip(RoundedCornerShape(12.dp))
                 )
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
                     text = "VENHA PARA O FUTURO",
@@ -92,11 +94,11 @@ fun LoginScreen(
                     letterSpacing = 2.sp
                 )
 
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
-                // Seletor de Rotas
+                // Seletor Rápido de Rotas por Código
                 Text(
-                    text = "Código da Rota do Servidor:",
+                    text = "Selecione ou digite o código da Rota:",
                     color = Color(0xFFAAAAAA),
                     fontSize = 12.sp,
                     modifier = Modifier.align(Alignment.Start)
@@ -143,11 +145,11 @@ fun LoginScreen(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Campo Código
+                // Campo Código do Servidor
                 OutlinedTextField(
                     value = serverCode,
                     onValueChange = { serverCode = it },
-                    label = { Text("Código do Servidor") },
+                    label = { Text("Código do Servidor (ex: 4100 ou drav01)") },
                     leadingIcon = {
                         Icon(Icons.Default.Dns, contentDescription = null, tint = Color(0xFF00E5FF))
                     },
@@ -183,7 +185,7 @@ fun LoginScreen(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Campo Senha com Ícone de Olho
+                // Campo Senha
                 OutlinedTextField(
                     value = pass,
                     onValueChange = { pass = it },
@@ -191,17 +193,8 @@ fun LoginScreen(
                     leadingIcon = {
                         Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFF9C27B0))
                     },
-                    trailingIcon = {
-                        IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
-                            Icon(
-                                imageVector = if (isPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                contentDescription = if (isPasswordVisible) "Ocultar senha" else "Mostrar senha",
-                                tint = if (isPasswordVisible) Color(0xFF00E5FF) else Color(0xFF8B949E)
-                            )
-                        }
-                    },
                     singleLine = true,
-                    visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    visualTransformation = PasswordVisualTransformation(),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White,
@@ -211,31 +204,8 @@ fun LoginScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Checkbox Mostrar Senha
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp)
-                        .clickable { isPasswordVisible = !isPasswordVisible }
-                ) {
-                    Checkbox(
-                        checked = isPasswordVisible,
-                        onCheckedChange = { isPasswordVisible = it },
-                        colors = CheckboxDefaults.colors(
-                            checkedColor = Color(0xFF00E5FF),
-                            uncheckedColor = Color(0xFF8B949E)
-                        )
-                    )
-                    Text(
-                        text = "Mostrar senha digitada",
-                        color = Color(0xFFCCCCCC),
-                        fontSize = 12.sp
-                    )
-                }
-
                 if (errorMessage != null) {
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     Text(
                         text = errorMessage ?: "",
                         color = Color(0xFFFF5252),
@@ -244,9 +214,9 @@ fun LoginScreen(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
-                // Botão ENTRAR
+                // Botão ENTRAR com gradiente do logo
                 Button(
                     onClick = {
                         if (serverCode.isNotBlank() && user.isNotBlank() && pass.isNotBlank()) {
@@ -259,7 +229,7 @@ fun LoginScreen(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp),
+                        .height(52.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
                     contentPadding = PaddingValues(),
                     shape = RoundedCornerShape(12.dp)

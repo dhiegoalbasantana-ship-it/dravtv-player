@@ -193,7 +193,6 @@ fun ChannelCard(
     onClick: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
-    val context = androidx.compose.ui.platform.LocalContext.current
 
     Card(
         modifier = Modifier
@@ -219,9 +218,9 @@ fun ChannelCard(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            if (!channel.streamIcon.isNullOrBlank()) {
+            if (!channel.safeIcon.isNullOrBlank()) {
                 AsyncImage(
-                    model = com.dravtv.player.util.ImageHelper.buildRequest(context, channel.streamIcon),
+                    model = channel.safeIcon,
                     contentDescription = channel.name,
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
