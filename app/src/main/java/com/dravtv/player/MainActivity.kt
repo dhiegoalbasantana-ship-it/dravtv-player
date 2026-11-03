@@ -7,11 +7,12 @@ import androidx.compose.runtime.*
 import androidx.lifecycle.lifecycleScope
 import com.dravtv.player.data.api.XtreamRepository
 import com.dravtv.player.data.model.*
-import com.google.gson.JsonElement
-import com.google.gson.JsonObject
 import com.dravtv.player.ui.player.PlayerScreen
 import com.dravtv.player.ui.screens.*
 import com.dravtv.player.ui.theme.DravTVTheme
+import com.dravtv.player.util.WatchProgressManager
+import com.google.gson.JsonElement
+import com.google.gson.JsonObject
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -23,7 +24,13 @@ sealed class Screen {
     object Vod : Screen()
     object Series : Screen()
     object Settings : Screen()
-    data class Player(val url: String, val title: String, val previousScreen: Screen) : Screen()
+    data class Player(
+        val url: String,
+        val title: String,
+        val previousScreen: Screen,
+        val startPositionMs: Long = 0L,
+        val onSaveProgress: ((positionMs: Long, durationMs: Long) -> Unit)? = null
+    ) : Screen()
 }
 
 class MainActivity : ComponentActivity() {
@@ -214,7 +221,11 @@ class MainActivity : ComponentActivity() {
                                     streamId = channel.streamId,
                                     ext = channel.extension ?: "ts"
                                 )
-                                currentScreen = Screen.Player(streamUrl, channel.name, Screen.LiveTv)
+                                currentScreen = Screen.Player(
+                                    url = streamUrl,
+                                    title = channel.name,
+                                    previousScreen = Screen.LiveTv
+                                )
                             },
                             onBack = {
                                 currentScreen = Screen.Home
@@ -248,6 +259,8 @@ class MainActivity : ComponentActivity() {
                                 }
                             },
                             onSelectMovie = { movie ->
+                                val movieProgress = WatchProgressManager.getMovieProgress(this@MainActivity, movie.streamId)
+                                val startPos = if (movieProgress.isCompleted) 0L else movieProgress.positionMs
                                 val streamUrl = XtreamRepository.buildVodStreamUrl(
                                     hostOrCode = currentServerCode,
                                     user = savedUser,
@@ -255,7 +268,20 @@ class MainActivity : ComponentActivity() {
                                     streamId = movie.streamId,
                                     ext = movie.containerExtension ?: "mp4"
                                 )
-                                currentScreen = Screen.Player(streamUrl, movie.name, Screen.Vod)
+                                currentScreen = Screen.Player(
+                                    url = streamUrl,
+                                    title = movie.name,
+                                    previousScreen = Screen.Vod,
+                                    startPositionMs = startPos,
+                                    onSaveProgress = { pos, dur ->
+                                        WatchProgressManager.saveMovieProgress(
+                                            context = this@MainActivity,
+                                            streamId = movie.streamId,
+                                            positionMs = pos,
+                                            durationMs = dur
+                                        )
+                                    }
+                                )
                             },
                             onBack = {
                                 currentScreen = Screen.Home
@@ -330,6 +356,7 @@ class MainActivity : ComponentActivity() {
                             episodes = currentEpisodes,
                             isLoadingEpisodes = isLoadingEpisodes,
                             onPlayEpisode = { ep ->
+                                val epPos = WatchProgressManager.getEpisodePosition(this@MainActivity, ep.id)
                                 val streamUrl = XtreamRepository.buildSeriesStreamUrl(
                                     hostOrCode = currentServerCode,
                                     user = savedUser,
@@ -337,7 +364,29 @@ class MainActivity : ComponentActivity() {
                                     streamId = ep.id.toIntOrNull() ?: 0,
                                     ext = ep.containerExtension ?: "mp4"
                                 )
-                                currentScreen = Screen.Player(streamUrl, ep.title, Screen.Series)
+                                val sId = selectedSeriesDetail?.seriesId ?: 0
+                                val sNum = ep.season ?: 1
+                                val epNum = ep.episodeNum ?: 1
+                                val sTitle = selectedSeriesDetail?.name ?: "Série"
+
+                                currentScreen = Screen.Player(
+                                    url = streamUrl,
+                                    title = "$sTitle - ${ep.title}",
+                                    previousScreen = Screen.Series,
+                                    startPositionMs = epPos,
+                                    onSaveProgress = { pos, dur ->
+                                        WatchProgressManager.saveSeriesProgress(
+                                            context = this@MainActivity,
+                                            seriesId = sId,
+                                            season = sNum,
+                                            episodeNum = epNum,
+                                            episodeId = ep.id,
+                                            episodeTitle = ep.title,
+                                            positionMs = pos,
+                                            durationMs = dur
+                                        )
+                                    }
+                                )
                             },
                             onCloseSeriesDetail = {
                                 selectedSeriesDetail = null
@@ -386,6 +435,8 @@ class MainActivity : ComponentActivity() {
                         PlayerScreen(
                             streamUrl = screen.url,
                             title = screen.title,
+                            startPositionMs = screen.startPositionMs,
+                            onProgressUpdate = screen.onSaveProgress,
                             onBack = {
                                 currentScreen = screen.previousScreen
                             }

@@ -57,6 +57,8 @@ data class SubtitleTrackOption(
 fun PlayerScreen(
     streamUrl: String,
     title: String,
+    startPositionMs: Long = 0L,
+    onProgressUpdate: ((positionMs: Long, durationMs: Long) -> Unit)? = null,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -70,6 +72,9 @@ fun PlayerScreen(
             val mediaItem = MediaItem.fromUri(streamUrl)
             setMediaItem(mediaItem)
             prepare()
+            if (startPositionMs > 0) {
+                seekTo(startPositionMs)
+            }
             playWhenReady = true
 
             addListener(object : Player.Listener {
@@ -80,8 +85,27 @@ fun PlayerScreen(
         }
     }
 
+    // Salva progresso periodicamente a cada 4 segundos
+    LaunchedEffect(exoPlayer) {
+        while (true) {
+            kotlinx.coroutines.delay(4000L)
+            if (exoPlayer.playbackState == Player.STATE_READY) {
+                val pos = exoPlayer.currentPosition
+                val dur = exoPlayer.duration
+                if (pos > 0) {
+                    onProgressUpdate?.invoke(pos, dur)
+                }
+            }
+        }
+    }
+
     DisposableEffect(Unit) {
         onDispose {
+            val pos = exoPlayer.currentPosition
+            val dur = exoPlayer.duration
+            if (pos > 0) {
+                onProgressUpdate?.invoke(pos, dur)
+            }
             exoPlayer.release()
         }
     }

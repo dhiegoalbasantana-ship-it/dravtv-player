@@ -24,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -32,6 +33,8 @@ import coil.compose.AsyncImage
 import com.dravtv.player.data.model.Category
 import com.dravtv.player.data.model.EpisodeItem
 import com.dravtv.player.data.model.SeriesItem
+import com.dravtv.player.util.ImageHelper
+import com.dravtv.player.util.WatchProgressManager
 
 @Composable
 fun SeriesScreen(
@@ -49,6 +52,7 @@ fun SeriesScreen(
     onBack: () -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
+    val context = LocalContext.current
 
     val filteredSeries = remember(seriesList, searchQuery) {
         if (searchQuery.isBlank()) {
@@ -204,6 +208,10 @@ fun SeriesScreen(
 
         // Modal Detalhes da Série & Episódios
         if (selectedSeries != null) {
+            val seriesProgress = remember(selectedSeries.seriesId) {
+                WatchProgressManager.getSeriesProgress(context, selectedSeries.seriesId)
+            }
+
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -254,6 +262,29 @@ fun SeriesScreen(
                             }
                         }
 
+                        // Botão para continuar de onde parou na série
+                        if (seriesProgress != null) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Button(
+                                onClick = {
+                                    val matchedEp = episodes.find { it.id == seriesProgress.episodeId }
+                                        ?: episodes.firstOrNull()
+                                    if (matchedEp != null) {
+                                        onPlayEpisode(matchedEp)
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text(
+                                    text = "▶ Continuar da Temporada ${seriesProgress.season} - Ep ${seriesProgress.episodeNum}",
+                                    color = Color.Black,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
+                        }
+
                         if (!selectedSeries.plot.isNullOrBlank()) {
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
@@ -267,7 +298,7 @@ fun SeriesScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = "Episódios",
+                            text = "Episódios (${episodes.size})",
                             color = Color.White,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold
@@ -289,6 +320,10 @@ fun SeriesScreen(
                             ) {
                                 items(episodes) { ep ->
                                     var isEpFocused by remember { mutableStateOf(false) }
+                                    val isWatched = remember(ep.id) {
+                                        WatchProgressManager.isEpisodeWatched(context, ep.id)
+                                    }
+                                    val isLastPoint = seriesProgress?.episodeId == ep.id
 
                                     Card(
                                         modifier = Modifier
@@ -298,7 +333,7 @@ fun SeriesScreen(
                                             .clickable { onPlayEpisode(ep) }
                                             .border(
                                                 width = if (isEpFocused) 2.dp else 1.dp,
-                                                color = if (isEpFocused) Color(0xFF00E5FF) else Color(0xFF232D42),
+                                                color = if (isEpFocused) Color(0xFF00E5FF) else if (isLastPoint) Color(0xFF00E5FF).copy(alpha = 0.5f) else Color(0xFF232D42),
                                                 shape = RoundedCornerShape(10.dp)
                                             ),
                                         shape = RoundedCornerShape(10.dp),
@@ -313,7 +348,7 @@ fun SeriesScreen(
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.SpaceBetween
                                         ) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                                                 Icon(
                                                     imageVector = Icons.Default.PlayArrow,
                                                     contentDescription = null,
@@ -325,16 +360,50 @@ fun SeriesScreen(
                                                     text = ep.title,
                                                     color = Color.White,
                                                     fontSize = 14.sp,
-                                                    fontWeight = FontWeight.Medium
+                                                    fontWeight = FontWeight.Medium,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
                                                 )
                                             }
 
-                                            Text(
-                                                text = "Assistir",
-                                                color = Color(0xFF00E5FF),
-                                                fontSize = 12.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                if (isWatched) {
+                                                    Surface(
+                                                        color = Color(0xFF00C853).copy(alpha = 0.9f),
+                                                        shape = RoundedCornerShape(6.dp),
+                                                        modifier = Modifier.padding(end = 8.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = "✓ Assistido",
+                                                            color = Color.White,
+                                                            fontSize = 10.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                        )
+                                                    }
+                                                } else if (isLastPoint) {
+                                                    Surface(
+                                                        color = Color(0xFF00E5FF).copy(alpha = 0.9f),
+                                                        shape = RoundedCornerShape(6.dp),
+                                                        modifier = Modifier.padding(end = 8.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = "▶ Onde parou",
+                                                            color = Color.Black,
+                                                            fontSize = 10.sp,
+                                                            fontWeight = FontWeight.ExtraBold,
+                                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                        )
+                                                    }
+                                                }
+
+                                                Text(
+                                                    text = "Assistir",
+                                                    color = Color(0xFF00E5FF),
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -353,7 +422,10 @@ fun SeriesCard(
     onClick: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
+    val progress = remember(series.seriesId) {
+        WatchProgressManager.getSeriesProgress(context, series.seriesId)
+    }
 
     Card(
         modifier = Modifier
@@ -382,7 +454,7 @@ fun SeriesCard(
             ) {
                 if (!series.cover.isNullOrBlank()) {
                     AsyncImage(
-                        model = com.dravtv.player.util.ImageHelper.buildRequest(context, series.cover),
+                        model = ImageHelper.buildRequest(context, series.cover),
                         contentDescription = series.name,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
@@ -394,6 +466,23 @@ fun SeriesCard(
                         tint = Color(0xFF00E5FF),
                         modifier = Modifier.size(50.dp)
                     )
+                }
+
+                // Marcação de onde parou na Série
+                if (progress != null) {
+                    Surface(
+                        color = Color(0xFF00E5FF).copy(alpha = 0.95f),
+                        shape = RoundedCornerShape(bottomEnd = 8.dp),
+                        modifier = Modifier.align(Alignment.TopStart)
+                    ) {
+                        Text(
+                            text = "Parou: T${progress.season} E${progress.episodeNum}",
+                            color = Color.Black,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                        )
+                    }
                 }
             }
 

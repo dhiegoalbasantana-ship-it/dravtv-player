@@ -32,6 +32,7 @@ import coil.compose.AsyncImage
 import com.dravtv.player.data.model.Category
 import com.dravtv.player.data.model.VodMovie
 import com.dravtv.player.util.ImageHelper
+import com.dravtv.player.util.WatchProgressManager
 
 @Composable
 fun VodScreen(
@@ -204,6 +205,9 @@ fun MovieCard(
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val progress = remember(movie.streamId) {
+        WatchProgressManager.getMovieProgress(context, movie.streamId)
+    }
 
     Card(
         modifier = Modifier
@@ -244,6 +248,53 @@ fun MovieCard(
                         tint = Color(0xFFFF9100),
                         modifier = Modifier.size(50.dp)
                     )
+                }
+
+                // Marcação de status / Onde parou no filme
+                if (progress.isCompleted) {
+                    Surface(
+                        color = Color(0xFF00C853).copy(alpha = 0.95f),
+                        shape = RoundedCornerShape(bottomEnd = 8.dp),
+                        modifier = Modifier.align(Alignment.TopStart)
+                    ) {
+                        Text(
+                            text = "✓ Assistido",
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                        )
+                    }
+                } else if (progress.percentage > 3) {
+                    Surface(
+                        color = Color(0xFFFF9100).copy(alpha = 0.95f),
+                        shape = RoundedCornerShape(bottomEnd = 8.dp),
+                        modifier = Modifier.align(Alignment.TopStart)
+                    ) {
+                        Text(
+                            text = "${progress.percentage}% visto",
+                            color = Color.Black,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                        )
+                    }
+
+                    // Linha visual de progresso na base do poster
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .background(Color.Black.copy(alpha = 0.6f))
+                            .align(Alignment.BottomCenter)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(progress.percentage / 100f)
+                                .fillMaxHeight()
+                                .background(Color(0xFFFF9100))
+                        )
+                    }
                 }
 
                 if (!movie.rating.isNullOrBlank() && movie.rating != "0") {
