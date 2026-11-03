@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">DravTV</string>
+    <string name="live_tv">Canais Ao Vivo</string>
+    <string name="movies">Filmes</string>
+    <string name="series">Séries</string>
+    <string name="epg">Guia de TV</string>
+    <string name="settings">Configurações</string>
+    <string name="login_title">Conectar ao DravTV</string>
+    <string name="server_url">URL do Servidor</string>
+    <string name="username">Usuário</string>
+    <string name="password">Senha</string>
+    <string name="btn_login">Entrar</string>
+    <string name="logging_in">Conectando...</string>
+    <string name="error_auth">Usuário ou senha incorretos / Servidor offline</string>
+</resources>

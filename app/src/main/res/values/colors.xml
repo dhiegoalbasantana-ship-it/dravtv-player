@@ -1,0 +1,9 @@
+<resources>
+    <color name="drav_bg">#0D1117</color>
+    <color name="drav_surface">#161B22</color>
+    <color name="drav_surface_light">#21262D</color>
+    <color name="drav_primary">#E50914</color>
+    <color name="drav_accent">#00E5FF</color>
+    <color name="drav_text_primary">#FFFFFF</color>
+    <color name="drav_text_secondary">#8B949E</color>
+</resources>
