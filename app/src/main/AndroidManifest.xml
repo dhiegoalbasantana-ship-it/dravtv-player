@@ -18,9 +18,9 @@
         android:name=".DravTvApp"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"
         android:banner="@drawable/banner_dravtv"
-        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.DravTV"
         android:usesCleartextTraffic="true">
