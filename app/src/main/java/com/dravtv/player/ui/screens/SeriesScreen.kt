@@ -353,6 +353,7 @@ fun SeriesCard(
     onClick: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     Card(
         modifier = Modifier
@@ -381,7 +382,7 @@ fun SeriesCard(
             ) {
                 if (!series.cover.isNullOrBlank()) {
                     AsyncImage(
-                        model = series.cover,
+                        model = com.dravtv.player.util.ImageHelper.buildRequest(context, series.cover),
                         contentDescription = series.name,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()

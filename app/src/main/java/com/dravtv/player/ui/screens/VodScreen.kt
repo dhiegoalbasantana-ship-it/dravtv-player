@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -30,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.dravtv.player.data.model.Category
 import com.dravtv.player.data.model.VodMovie
+import com.dravtv.player.util.ImageHelper
 
 @Composable
 fun VodScreen(
@@ -147,7 +149,6 @@ fun VodScreen(
                     fontWeight = FontWeight.Bold
                 )
 
-                // Campo de Busca
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
@@ -174,7 +175,7 @@ fun VodScreen(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator(color = Color(0xFFFF9100))
                         Spacer(modifier = Modifier.height(12.dp))
-                        Text("Carregando filmes da categoria...", color = Color(0xFFCCCCCC), fontSize = 14.sp)
+                        Text("Carregando filmes...", color = Color(0xFFCCCCCC), fontSize = 14.sp)
                     }
                 }
             } else {
@@ -202,6 +203,7 @@ fun MovieCard(
     onClick: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Card(
         modifier = Modifier
@@ -230,7 +232,7 @@ fun MovieCard(
             ) {
                 if (!movie.streamIcon.isNullOrBlank()) {
                     AsyncImage(
-                        model = movie.streamIcon,
+                        model = ImageHelper.buildRequest(context, movie.streamIcon),
                         contentDescription = movie.name,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
