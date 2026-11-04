@@ -92,45 +92,29 @@ fun LoginScreen(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF030207)),
-        contentAlignment = Alignment.Center
+            .background(Color(0xFF030207))
     ) {
         val screenW = maxWidth
         val screenH = maxHeight
 
-        // Calcula proporção 16:9 perfeita para televisores e celulares horizontais
-        val bannerW = if (screenW / screenH > 16f / 9f) {
-            screenH * (16f / 9f)
-        } else {
-            screenW
-        }
-        val bannerH = bannerW / (16f / 9f)
+        // Banner ocupa 100% da tela sem barras pretas laterais
+        Image(
+            painter = painterResource(id = R.drawable.banner_login),
+            contentDescription = "Tela de Login DravTV",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.FillBounds
+        )
 
-        Box(
-            modifier = Modifier
-                .width(bannerW)
-                .height(bannerH)
-        ) {
-            // ==========================================
-            // 1. BANNER OFICIAL DE LOGIN NA ÍNTEGRA
-            // ==========================================
-            Image(
-                painter = painterResource(id = R.drawable.banner_login),
-                contentDescription = "Tela de Login DravTV",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.FillBounds
-            )
+        // Dimensões relativas à proporção original do banner (1024 x 576):
+        // Inputs: x=565, width=385, height=54
+        val boxLeft = screenW * (565f / 1024f)
+        val boxWidth = screenW * (385f / 1024f)
+        val boxHeight = screenH * (54f / 576f)
 
-            // Dimensões relativas à proporção original do banner (1024 x 576):
-            // Inputs: x=565, width=385, height=54
-            val boxLeft = bannerW * (565f / 1024f)
-            val boxWidth = bannerW * (385f / 1024f)
-            val boxHeight = bannerH * (54f / 576f)
-
-            // ==========================================
-            // CAMPO 1: CÓDIGO (Em branco por padrão)
-            // ==========================================
-            val codeTop = bannerH * (172f / 576f)
+        // ==========================================
+        // CAMPO 1: CÓDIGO (Em branco por padrão)
+        // ==========================================
+        val codeTop = screenH * (172f / 576f)
             Box(
                 modifier = Modifier
                     .offset(x = boxLeft, y = codeTop)
@@ -157,7 +141,7 @@ fun LoginScreen(
                     singleLine = true,
                     textStyle = TextStyle(
                         color = Color.White,
-                        fontSize = (bannerH.value * 0.038f).sp,
+                        fontSize = (screenH.value * 0.038f).sp,
                         fontWeight = FontWeight.Bold
                     ),
                     keyboardOptions = KeyboardOptions(
@@ -177,7 +161,7 @@ fun LoginScreen(
             // ==========================================
             // CAMPO 2: USUÁRIO
             // ==========================================
-            val userTop = bannerH * (238f / 576f)
+            val userTop = screenH * (238f / 576f)
             Box(
                 modifier = Modifier
                     .offset(x = boxLeft, y = userTop)
@@ -204,7 +188,7 @@ fun LoginScreen(
                     singleLine = true,
                     textStyle = TextStyle(
                         color = Color.White,
-                        fontSize = (bannerH.value * 0.038f).sp,
+                        fontSize = (screenH.value * 0.038f).sp,
                         fontWeight = FontWeight.Bold
                     ),
                     keyboardOptions = KeyboardOptions(
@@ -225,7 +209,7 @@ fun LoginScreen(
             // ==========================================
             // CAMPO 3: SENHA (+ Ícone de Revelar Senha)
             // ==========================================
-            val passTop = bannerH * (308f / 576f)
+            val passTop = screenH * (308f / 576f)
             Box(
                 modifier = Modifier
                     .offset(x = boxLeft, y = passTop)
@@ -253,7 +237,7 @@ fun LoginScreen(
                     visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     textStyle = TextStyle(
                         color = Color.White,
-                        fontSize = (bannerH.value * 0.038f).sp,
+                        fontSize = (screenH.value * 0.038f).sp,
                         fontWeight = FontWeight.Bold
                     ),
                     keyboardOptions = KeyboardOptions(
@@ -296,10 +280,10 @@ fun LoginScreen(
             // ==========================================
             // BOTÃO: ENTRAR (Perfeitamente posicionado sobre o banner)
             // ==========================================
-            val btnLeft = bannerW * (580f / 1024f)
-            val btnWidth = bannerW * (340f / 1024f)
-            val btnTop = bannerH * (388f / 576f)
-            val btnHeight = bannerH * (67f / 576f)
+            val btnLeft = screenW * (580f / 1024f)
+            val btnWidth = screenW * (340f / 1024f)
+            val btnTop = screenH * (388f / 576f)
+            val btnHeight = screenH * (67f / 576f)
 
             val btnScale by animateFloatAsState(
                 targetValue = if (isButtonFocused) 1.05f else 1.0f,
@@ -346,7 +330,7 @@ fun LoginScreen(
             errorMessage?.let { error ->
                 Box(
                     modifier = Modifier
-                        .offset(x = boxLeft, y = bannerH * (470f / 576f))
+                        .offset(x = boxLeft, y = screenH * (470f / 576f))
                         .width(boxWidth)
                         .clip(RoundedCornerShape(8.dp))
                         .background(Color(0xDDCC0000))
@@ -361,6 +345,5 @@ fun LoginScreen(
                     )
                 }
             }
-        }
     }
 }
