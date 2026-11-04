@@ -8,6 +8,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -25,9 +26,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dravtv.player.R
+import java.text.SimpleDateFormat
+import java.util.*
 
 @Composable
 fun HomeScreen(
@@ -40,26 +44,53 @@ fun HomeScreen(
     onNavigateSettings: () -> Unit,
     onLogout: () -> Unit
 ) {
-    Box(modifier = Modifier.fillMaxSize()) {
-        // Imagem de Fundo Cinema Oficial do DravTV
-        Image(
-            painter = painterResource(id = R.drawable.home_cinema_bg),
-            contentDescription = "DravTV Cinema",
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
-        )
+    var showUserModal by remember { mutableStateOf(false) }
 
-        // Camada de gradiente escuro suave para leitura perfeita dos botões
+    // Relógio ao vivo atualizado
+    var currentTime by remember {
+        mutableStateOf(SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date()))
+    }
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(10000L)
+            currentTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF030207))
+    ) {
+        // Luzes de ambiente neon
         Box(
             modifier = Modifier
-                .fillMaxSize()
+                .size(340.dp)
+                .offset(x = (-80).dp, y = (-80).dp)
                 .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = 0.55f),
-                            Color.Transparent,
-                            Color.Black.copy(alpha = 0.70f)
-                        )
+                    Brush.radialGradient(
+                        colors = listOf(Color(0xFFFF8A00).copy(alpha = 0.15f), Color.Transparent)
+                    )
+                )
+        )
+        Box(
+            modifier = Modifier
+                .size(360.dp)
+                .align(Alignment.Center)
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(Color(0xFF9D00FF).copy(alpha = 0.14f), Color.Transparent)
+                    )
+                )
+        )
+        Box(
+            modifier = Modifier
+                .size(380.dp)
+                .align(Alignment.BottomEnd)
+                .offset(x = 80.dp, y = 80.dp)
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(Color(0xFF00F0FF).copy(alpha = 0.14f), Color.Transparent)
                     )
                 )
         )
@@ -67,114 +98,410 @@ fun HomeScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 32.dp, vertical = 20.dp),
+                .padding(horizontal = 32.dp, vertical = 18.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Top Bar com Logo e Botões de Ação
+            // ==========================================
+            // TOPO: LOGO DRAV•TV + RELÓGIO + USUÁRIO + CONFIGURAÇÕES
+            // ==========================================
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Info do Usuário
-                Surface(
-                    color = Color.Black.copy(alpha = 0.65f),
-                    shape = RoundedCornerShape(12.dp),
-                    border = CardDefaults.outlinedCardBorder().copy(
-                        brush = Brush.horizontalGradient(listOf(Color(0xFFFF9100), Color(0xFF00E5FF)))
-                    )
+                // Identidade Visual DRAV•TV (Esquerda)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .clip(RoundedCornerShape(5.dp))
-                                .background(Color(0xFF00E676))
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
+                    Image(
+                        painter = painterResource(id = R.drawable.logo_dravtv_3d),
+                        contentDescription = "DRAV•TV",
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .height(48.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                    )
+
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "DRAV•TV",
+                                color = Color.White,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 2.sp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Surface(
+                                color = Color(0xFF00E676).copy(alpha = 0.15f),
+                                border = CardDefaults.outlinedCardBorder().copy(
+                                    brush = Brush.linearGradient(listOf(Color(0xFF00E676), Color(0xFF00E5FF)))
+                                ),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(6.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFF00E676))
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "4K LIVE",
+                                        color = Color(0xFF00E676),
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.ExtraBold
+                                    )
+                                }
+                            }
+                        }
                         Text(
-                            text = "Usuário: $username • Rota: $serverCode ${expiryDate?.let { "• Válido: $it" } ?: ""}",
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium
+                            text = "VENHA PARA O FUTURO",
+                            color = Color(0xFF00E5FF),
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 2.5.sp
                         )
                     }
                 }
 
-                // Botões Configurações e Sair
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    IconButton(
-                        onClick = onNavigateSettings,
-                        modifier = Modifier
-                            .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(10.dp))
-                            .border(1.dp, Color(0xFF00E5FF), RoundedCornerShape(10.dp))
+                // Ações do Topo (Direita): Relógio + Perfil Discreto + Configurações
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Relógio Discreto
+                    Surface(
+                        color = Color.White.copy(alpha = 0.05f),
+                        border = CardDefaults.outlinedCardBorder().copy(
+                            brush = Brush.linearGradient(listOf(Color.White.copy(alpha = 0.1f), Color.Transparent))
+                        ),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Configurações",
-                            tint = Color(0xFF00E5FF)
-                        )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Schedule,
+                                contentDescription = null,
+                                tint = Color(0xFF00E5FF),
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = currentTime,
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
 
-                    IconButton(
-                        onClick = onLogout,
+                    // Botão Discreto de Usuário
+                    var isUserBtnFocused by remember { mutableStateOf(false) }
+                    Surface(
                         modifier = Modifier
-                            .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(10.dp))
-                            .border(1.dp, Color(0xFFFF5252), RoundedCornerShape(10.dp))
+                            .focusable()
+                            .onFocusChanged { isUserBtnFocused = it.isFocused }
+                            .clickable { showUserModal = true }
+                            .border(
+                                width = if (isUserBtnFocused) 2.dp else 1.dp,
+                                color = if (isUserBtnFocused) Color(0xFF00E5FF) else Color.White.copy(alpha = 0.12f),
+                                shape = RoundedCornerShape(20.dp)
+                            ),
+                        color = if (isUserBtnFocused) Color(0xFF1B2436) else Color.White.copy(alpha = 0.06f),
+                        shape = RoundedCornerShape(20.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.ExitToApp,
-                            contentDescription = "Sair",
-                            tint = Color(0xFFFF5252)
-                        )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        Brush.linearGradient(
+                                            listOf(Color(0xFFFF9100), Color(0xFF9C27B0), Color(0xFF00E5FF))
+                                        )
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = username.take(2).uppercase().ifBlank { "TV" },
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = username.ifBlank { "Cliente" },
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "Rota $serverCode",
+                                    color = Color(0xFF00E5FF),
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowDown,
+                                contentDescription = null,
+                                tint = Color(0xFF8B949E),
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
+
+                    // Botão Discreto de Configurações
+                    var isSettingsFocused by remember { mutableStateOf(false) }
+                    Surface(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .focusable()
+                            .onFocusChanged { isSettingsFocused = it.isFocused }
+                            .clickable { onNavigateSettings() }
+                            .border(
+                                width = if (isSettingsFocused) 2.dp else 1.dp,
+                                color = if (isSettingsFocused) Color(0xFF00E5FF) else Color.White.copy(alpha = 0.12f),
+                                shape = CircleShape
+                            ),
+                        color = if (isSettingsFocused) Color(0xFF1B2436) else Color.White.copy(alpha = 0.06f),
+                        shape = CircleShape
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Configurações",
+                                tint = if (isSettingsFocused) Color(0xFF00E5FF) else Color(0xFFCCCCCC),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
                 }
             }
 
-            // Área Central de Destaque - Os 3 Botões 3D Brilhantes
+            // ==========================================
+            // CENTRO: 3 HERO PORTAL CARDS (CANAIS, FILMES, SÉRIES)
+            // ==========================================
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 24.dp),
-                horizontalArrangement = Arrangement.Center,
+                    .padding(vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(22.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // CARD 1: CANAIS (TV AO VIVO) - Tema Ouro / Laranja Solar
+                HeroPortalCard(
+                    modifier = Modifier.weight(1f),
+                    title = "CANAIS",
+                    subtitle = "Esportes • Abertos • 4K UHD",
+                    badgeText = "AO VIVO",
+                    counterText = "+2.400 Canais",
+                    themeColor = Color(0xFFFFB800),
+                    secondaryColor = Color(0xFFFF8A00),
+                    cardIcon = Icons.Default.LiveTv,
+                    onClick = onNavigateLive
+                )
+
+                // CARD 2: FILMES (CINEMA VOD) - Tema Magenta / Roxo Elétrico
+                HeroPortalCard(
+                    modifier = Modifier.weight(1f),
+                    title = "FILMES",
+                    subtitle = "Lançamentos • Dublados • IMAX",
+                    badgeText = "CINEMA 4K",
+                    counterText = "+18.500 Filmes",
+                    themeColor = Color(0xFFE040FB),
+                    secondaryColor = Color(0xFF9D00FF),
+                    cardIcon = Icons.Default.Movie,
+                    onClick = onNavigateVod
+                )
+
+                // CARD 3: SÉRIES (MARATONAS) - Tema Ciano / Azul Futurista
+                HeroPortalCard(
+                    modifier = Modifier.weight(1f),
+                    title = "SÉRIES",
+                    subtitle = "Originais • Doramas • Animes",
+                    badgeText = "MARATONAS",
+                    counterText = "+4.200 Séries",
+                    themeColor = Color(0xFF00F0FF),
+                    secondaryColor = Color(0xFF0057FF),
+                    cardIcon = Icons.Default.VideoLibrary,
+                    onClick = onNavigateSeries
+                )
+            }
+
+            // ==========================================
+            // RODAPÉ: STATUS DA CONTA & DICAS DE NAVEGAÇÃO TV
+            // ==========================================
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF00E676))
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Status: Ativa • Expira em: ${expiryDate ?: "Indeterminado"}",
+                        color = Color(0xFF8B949E),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(28.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Botão 1: Canais Ao Vivo (Roxo Neon)
-                    Glowing3DButton(
-                        title = "CANAIS",
-                        subtitle = "AO VIVO ((•))",
-                        icon = Icons.Default.LiveTv,
-                        glowColor = Color(0xFFB347FF),
-                        gradientColors = listOf(Color(0xFF6A0DAD), Color(0xFF2C0959)),
-                        onClick = onNavigateLive
+                    Text(
+                        text = "Navegue pelo controle remoto • [OK] Selecionar",
+                        color = Color(0xFF6E7681),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
                     )
+                }
+            }
+        }
 
-                    // Botão 2: Filmes (Laranja/Dourado Neon)
-                    Glowing3DButton(
-                        title = "FILMES",
-                        subtitle = "LANÇAMENTOS & VOD",
-                        icon = Icons.Default.Movie,
-                        glowColor = Color(0xFFFF9100),
-                        gradientColors = listOf(Color(0xFFFF6D00), Color(0xFF7A3200)),
-                        onClick = onNavigateVod
+        // ==========================================
+        // MODAL DE DETALHES DO USUÁRIO & LOGOFF
+        // ==========================================
+        if (showUserModal) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.85f))
+                    .clickable { showUserModal = false },
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    modifier = Modifier
+                        .width(420.dp)
+                        .clickable(enabled = false) {},
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF111722)),
+                    shape = RoundedCornerShape(20.dp),
+                    border = CardDefaults.outlinedCardBorder().copy(
+                        brush = Brush.linearGradient(
+                            listOf(Color(0xFFFF9100), Color(0xFF9C27B0), Color(0xFF00E5FF))
+                        )
                     )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    Brush.linearGradient(
+                                        listOf(Color(0xFFFF9100), Color(0xFF9C27B0), Color(0xFF00E5FF))
+                                    )
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = username.take(2).uppercase().ifBlank { "TV" },
+                                color = Color.White,
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
 
-                    // Botão 3: Séries (Azul Neon)
-                    Glowing3DButton(
-                        title = "SÉRIES",
-                        subtitle = "TEMPORADAS",
-                        icon = Icons.Default.VideoLibrary,
-                        glowColor = Color(0xFF00E5FF),
-                        gradientColors = listOf(Color(0xFF0091EA), Color(0xFF003865)),
-                        onClick = onNavigateSeries
-                    )
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Text(
+                            text = username,
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Assinatura IPTV Premium",
+                            color = Color(0xFF00E5FF),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+
+                        Spacer(modifier = Modifier.height(18.dp))
+
+                        Surface(
+                            color = Color(0xFF182234),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("Rota de Servidor:", color = Color(0xFF8B949E), fontSize = 12.sp)
+                                    Text(serverCode, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("Data de Expiração:", color = Color(0xFF8B949E), fontSize = 12.sp)
+                                    Text(expiryDate ?: "Ativa", color = Color(0xFF00E676), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    showUserModal = false
+                                    onLogout()
+                                },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Icon(Icons.Default.ExitToApp, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Trocar de Conta", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+
+                            Button(
+                                onClick = { showUserModal = false },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF263248)),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text("Fechar", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -182,45 +509,47 @@ fun HomeScreen(
 }
 
 @Composable
-fun Glowing3DButton(
+fun HeroPortalCard(
+    modifier: Modifier = Modifier,
     title: String,
     subtitle: String,
-    icon: ImageVector,
-    glowColor: Color,
-    gradientColors: List<Color>,
+    badgeText: String,
+    counterText: String,
+    themeColor: Color,
+    secondaryColor: Color,
+    cardIcon: ImageVector,
     onClick: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
 
     val scale by animateFloatAsState(
-        targetValue = if (isFocused) 1.09f else 1.0f,
+        targetValue = if (isFocused) 1.05f else 1.0f,
         animationSpec = tween(durationMillis = 200),
-        label = "buttonScale"
+        label = "heroCardScale"
     )
 
     Card(
-        modifier = Modifier
-            .width(220.dp)
-            .height(230.dp)
+        modifier = modifier
+            .height(260.dp)
             .scale(scale)
             .focusable()
             .onFocusChanged { isFocused = it.isFocused }
             .shadow(
-                elevation = if (isFocused) 26.dp else 10.dp,
-                shape = RoundedCornerShape(26.dp),
-                spotColor = glowColor,
-                ambientColor = glowColor
+                elevation = if (isFocused) 28.dp else 10.dp,
+                shape = RoundedCornerShape(20.dp),
+                spotColor = themeColor,
+                ambientColor = themeColor
             )
             .border(
-                width = if (isFocused) 4.dp else 1.5.dp,
+                width = if (isFocused) 3.5.dp else 1.dp,
                 brush = Brush.linearGradient(
-                    if (isFocused) listOf(glowColor, Color.White, glowColor)
-                    else listOf(glowColor.copy(alpha = 0.7f), Color.Transparent)
+                    if (isFocused) listOf(themeColor, Color.White, themeColor)
+                    else listOf(themeColor.copy(alpha = 0.5f), Color.White.copy(alpha = 0.1f))
                 ),
-                shape = RoundedCornerShape(26.dp)
+                shape = RoundedCornerShape(20.dp)
             )
             .clickable { onClick() },
-        shape = RoundedCornerShape(26.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
         Box(
@@ -228,51 +557,121 @@ fun Glowing3DButton(
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        if (isFocused) listOf(glowColor.copy(alpha = 0.85f), gradientColors[1])
-                        else gradientColors
+                        if (isFocused) listOf(
+                            themeColor.copy(alpha = 0.28f),
+                            secondaryColor.copy(alpha = 0.40f),
+                            Color(0xFF0A0916)
+                        )
+                        else listOf(
+                            Color(0xFF16132C).copy(alpha = 0.85f),
+                            Color(0xFF0B0918).copy(alpha = 0.95f)
+                        )
                     )
                 )
                 .padding(20.dp)
         ) {
             Column(
                 modifier = Modifier.fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Ícone com brilho interno
-                Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(Color.Black.copy(alpha = 0.35f))
-                        .border(1.dp, glowColor.copy(alpha = 0.6f), RoundedCornerShape(20.dp)),
-                    contentAlignment = Alignment.Center
+                // Topo do Card: Badge + Contador
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = title,
-                        tint = if (isFocused) Color.White else glowColor,
-                        modifier = Modifier.size(46.dp)
+                    Surface(
+                        color = themeColor.copy(alpha = 0.2f),
+                        border = CardDefaults.outlinedCardBorder().copy(
+                            brush = Brush.linearGradient(listOf(themeColor, Color.White.copy(alpha = 0.4f)))
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            text = badgeText,
+                            color = themeColor,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+
+                    Text(
+                        text = counterText,
+                        color = Color(0xFFCCCCCC),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
 
-                // Textos
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = title,
-                        color = Color.White,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 1.sp
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = subtitle,
-                        color = if (isFocused) Color.White else Color(0xFFDDDDDD),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
-                    )
+                // Centro: Arte do Ícone 3D
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(90.dp)
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(themeColor.copy(alpha = 0.2f), secondaryColor.copy(alpha = 0.15f))
+                                )
+                            )
+                            .border(1.dp, themeColor.copy(alpha = 0.4f), RoundedCornerShape(24.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = cardIcon,
+                            contentDescription = title,
+                            tint = if (isFocused) Color.White else themeColor,
+                            modifier = Modifier.size(52.dp)
+                        )
+                    }
+                }
+
+                // Base: Título + Subtítulo + Botão Play
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = title,
+                            color = if (isFocused) themeColor else Color.White,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 1.sp
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = subtitle,
+                            color = Color(0xFFAAAAAA),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(if (isFocused) themeColor else themeColor.copy(alpha = 0.25f))
+                            .border(1.dp, themeColor, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = "Acessar",
+                            tint = if (isFocused) Color.Black else Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
         }
