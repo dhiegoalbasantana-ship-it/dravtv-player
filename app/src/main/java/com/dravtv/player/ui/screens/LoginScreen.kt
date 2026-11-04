@@ -1,17 +1,14 @@
 package com.dravtv.player.ui.screens
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -19,12 +16,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -49,7 +47,6 @@ fun LoginScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isButtonFocused by remember { mutableStateOf(false) }
 
-    // Relógio ao vivo atualizado
     var currentTime by remember {
         mutableStateOf(SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date()))
     }
@@ -68,17 +65,15 @@ fun LoginScreen(
         "dravbr" to "BR Natv"
     )
 
-    val scrollState = rememberScrollState()
-
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF030207))
     ) {
-        // Luzes e auras de fundo inspiradas no protótipo oficial
+        // Auras neon de fundo
         Box(
             modifier = Modifier
-                .size(380.dp)
+                .size(340.dp)
                 .offset(x = (-80).dp, y = (-80).dp)
                 .background(
                     Brush.radialGradient(
@@ -88,23 +83,23 @@ fun LoginScreen(
         )
         Box(
             modifier = Modifier
-                .size(350.dp)
+                .size(320.dp)
                 .align(Alignment.CenterStart)
                 .offset(x = 100.dp)
                 .background(
                     Brush.radialGradient(
-                        colors = listOf(Color(0xFF9D00FF).copy(alpha = 0.15f), Color.Transparent)
+                        colors = listOf(Color(0xFF9D00FF).copy(alpha = 0.14f), Color.Transparent)
                     )
                 )
         )
         Box(
             modifier = Modifier
-                .size(400.dp)
+                .size(360.dp)
                 .align(Alignment.BottomEnd)
-                .offset(x = 100.dp, y = 100.dp)
+                .offset(x = 80.dp, y = 80.dp)
                 .background(
                     Brush.radialGradient(
-                        colors = listOf(Color(0xFF00F0FF).copy(alpha = 0.15f), Color.Transparent)
+                        colors = listOf(Color(0xFF00F0FF).copy(alpha = 0.14f), Color.Transparent)
                     )
                 )
         )
@@ -112,27 +107,29 @@ fun LoginScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 12.dp),
+                .padding(horizontal = 24.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             // ==========================================
-            // BARRA DE STATUS SUPERIOR (COMPACTA)
+            // BARRA DE STATUS SUPERIOR (ULTRA COMPACTA)
             // ==========================================
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(28.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Surface(
                         color = Color.White.copy(alpha = 0.05f),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(6.dp),
                         border = CardDefaults.outlinedCardBorder().copy(
-                            brush = Brush.linearGradient(listOf(Color.White.copy(alpha = 0.1f), Color.Transparent))
+                            brush = Brush.linearGradient(listOf(Color.White.copy(alpha = 0.12f), Color.Transparent))
                         )
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(
@@ -141,7 +138,7 @@ fun LoginScreen(
                                     .clip(CircleShape)
                                     .background(Color(0xFF00E676))
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(5.dp))
                             Text(
                                 text = "Servidor Online",
                                 color = Color(0xFFEEEEEE),
@@ -154,7 +151,7 @@ fun LoginScreen(
                     Spacer(modifier = Modifier.width(10.dp))
 
                     Text(
-                        text = "Ultra HD 4K • IPTV Engine v4.2",
+                        text = "Ultra HD 4K • IPTV Engine",
                         color = Color(0xFF8B949E),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Medium
@@ -163,13 +160,12 @@ fun LoginScreen(
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // Botão de Teste Rápido
                     Text(
                         text = "Preencher Teste",
                         color = Color(0xFFFFD000),
-                        fontSize = 11.sp,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier
                             .clickable {
@@ -177,32 +173,31 @@ fun LoginScreen(
                                 user = "testedrav"
                                 pass = "32652901781"
                             }
-                            .padding(4.dp)
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
                     )
 
-                    // Relógio
                     Surface(
                         color = Color.White.copy(alpha = 0.05f),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(6.dp),
                         border = CardDefaults.outlinedCardBorder().copy(
-                            brush = Brush.linearGradient(listOf(Color.White.copy(alpha = 0.1f), Color.Transparent))
+                            brush = Brush.linearGradient(listOf(Color.White.copy(alpha = 0.12f), Color.Transparent))
                         )
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Schedule,
                                 contentDescription = null,
                                 tint = Color(0xFF9D00FF),
-                                modifier = Modifier.size(12.dp)
+                                modifier = Modifier.size(11.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = currentTime,
                                 color = Color.White,
-                                fontSize = 11.sp,
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -220,71 +215,49 @@ fun LoginScreen(
                     .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // COLUNA DA ESQUERDA: IDENTIDADE DRAV•TV (42% LARGURA)
+                // COLUNA ESQUERDA: BRANDING DRAV•TV (40% LARGURA)
                 Column(
                     modifier = Modifier
-                        .weight(0.42f)
+                        .weight(0.40f)
                         .fillMaxHeight(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Box(
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(140.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    Brush.radialGradient(
-                                        colors = listOf(
-                                            Color(0xFFFF8A00).copy(alpha = 0.2f),
-                                            Color(0xFF9D00FF).copy(alpha = 0.2f),
-                                            Color(0xFF00F0FF).copy(alpha = 0.15f),
-                                            Color.Transparent
-                                        )
-                                    )
-                                )
-                        )
+                    Image(
+                        painter = painterResource(id = R.drawable.logo_dravtv_3d),
+                        contentDescription = "DRAV•TV",
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .height(100.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                    )
 
-                        Image(
-                            painter = painterResource(id = R.drawable.logo_dravtv_3d),
-                            contentDescription = "DRAV•TV",
-                            contentScale = ContentScale.Fit,
-                            modifier = Modifier
-                                .height(115.dp)
-                                .clip(RoundedCornerShape(18.dp))
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
                         text = "DRAV•TV",
                         color = Color.White,
-                        fontSize = 32.sp,
+                        fontSize = 28.sp,
                         fontWeight = FontWeight.Black,
                         letterSpacing = 2.sp
                     )
 
-                    Spacer(modifier = Modifier.height(2.dp))
-
                     Text(
                         text = "VENHA PARA O FUTURO",
                         color = Color(0xFF00E5FF),
-                        fontSize = 11.sp,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
-                        letterSpacing = 3.sp
+                        letterSpacing = 2.5.sp
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Surface(
                             color = Color.White.copy(alpha = 0.05f),
-                            shape = RoundedCornerShape(8.dp),
+                            shape = RoundedCornerShape(6.dp),
                             border = CardDefaults.outlinedCardBorder().copy(
                                 brush = Brush.linearGradient(listOf(Color.White.copy(alpha = 0.1f), Color.Transparent))
                             )
@@ -292,15 +265,15 @@ fun LoginScreen(
                             Text(
                                 text = "🎬 +15.000 Canais & VOD",
                                 color = Color(0xFFCCCCCC),
-                                fontSize = 9.sp,
+                                fontSize = 8.5.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
                             )
                         }
 
                         Surface(
                             color = Color.White.copy(alpha = 0.05f),
-                            shape = RoundedCornerShape(8.dp),
+                            shape = RoundedCornerShape(6.dp),
                             border = CardDefaults.outlinedCardBorder().copy(
                                 brush = Brush.linearGradient(listOf(Color.White.copy(alpha = 0.1f), Color.Transparent))
                             )
@@ -308,9 +281,9 @@ fun LoginScreen(
                             Text(
                                 text = "⚡ Anti-Trava P2P",
                                 color = Color(0xFF00E5FF),
-                                fontSize = 9.sp,
+                                fontSize = 8.5.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
                             )
                         }
                     }
@@ -318,13 +291,13 @@ fun LoginScreen(
 
                 Spacer(modifier = Modifier.width(16.dp))
 
-                // COLUNA DA DIREITA: CARD GLASSMORPHISM DE LOGIN (58% LARGURA)
+                // COLUNA DIREITA: QUADRADO GLASSMORPHISM COM TUDO DENTRO SEM ROLAGEM (60% LARGURA)
                 Card(
                     modifier = Modifier
-                        .weight(0.58f)
-                        .fillMaxHeight(0.96f),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F0D1E).copy(alpha = 0.92f)),
-                    shape = RoundedCornerShape(18.dp),
+                        .weight(0.60f)
+                        .fillMaxHeight(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0E0C1C).copy(alpha = 0.94f)),
+                    shape = RoundedCornerShape(16.dp),
                     border = CardDefaults.outlinedCardBorder().copy(
                         brush = Brush.linearGradient(
                             listOf(Color(0xFFFF8A00).copy(alpha = 0.7f), Color(0xFF9D00FF).copy(alpha = 0.7f), Color(0xFF00F0FF).copy(alpha = 0.8f))
@@ -334,64 +307,41 @@ fun LoginScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 22.dp, vertical = 14.dp)
-                            .verticalScroll(scrollState),
+                            .padding(horizontal = 18.dp, vertical = 12.dp),
                         verticalArrangement = Arrangement.SpaceBetween
                     ) {
-                        // Cabeçalho do Card
+                        // Título do Quadrado
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = "Acesso ao Painel",
-                                        color = Color.White,
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .size(6.dp)
-                                            .clip(CircleShape)
-                                            .background(Color(0xFF00F0FF))
-                                    )
-                                }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = "Informe seu código, usuário e senha",
-                                    color = Color(0xFF8B949E),
-                                    fontSize = 10.sp
+                                    text = "Acesso ao Painel",
+                                    color = Color.White,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.width(5.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .size(5.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF00F0FF))
                                 )
                             }
-
-                            Box(
-                                modifier = Modifier
-                                    .size(30.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(
-                                        Brush.linearGradient(
-                                            listOf(Color(0xFFFF8A00).copy(alpha = 0.2f), Color(0xFF9D00FF).copy(alpha = 0.2f), Color(0xFF00F0FF).copy(alpha = 0.2f))
-                                        )
-                                    )
-                                    .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(8.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Shield,
-                                    contentDescription = null,
-                                    tint = Color(0xFF00F0FF),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
+                            Text(
+                                text = "Informe código, usuário e senha",
+                                color = Color(0xFF8B949E),
+                                fontSize = 9.sp
+                            )
                         }
 
-                        // Seletores Rápidos de Rota
+                        // Seletores Rápidos de Rota (Botões Compactos)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
                         ) {
                             quickRoutes.forEach { (code, label) ->
                                 val isSelected = serverCode == code
@@ -400,7 +350,7 @@ fun LoginScreen(
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .clip(RoundedCornerShape(7.dp))
+                                        .clip(RoundedCornerShape(6.dp))
                                         .focusable()
                                         .onFocusChanged { isFocused = it.isFocused }
                                         .background(
@@ -417,105 +367,67 @@ fun LoginScreen(
                                                 isSelected -> Color(0xFF00E5FF)
                                                 else -> Color(0xFF2A2645)
                                             },
-                                            shape = RoundedCornerShape(7.dp)
+                                            shape = RoundedCornerShape(6.dp)
                                         )
                                         .clickable { serverCode = code }
-                                        .padding(vertical = 5.dp),
+                                        .padding(vertical = 4.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                         Text(
                                             text = code,
                                             color = if (isSelected) Color.Black else Color.White,
-                                            fontSize = 11.sp,
+                                            fontSize = 10.sp,
                                             fontWeight = FontWeight.Bold
                                         )
                                         Text(
                                             text = label,
                                             color = if (isSelected) Color(0xFF111111) else Color(0xFF888888),
-                                            fontSize = 8.sp
+                                            fontSize = 7.5.sp
                                         )
                                     }
                                 }
                             }
                         }
 
-                        // Campos: Código da Operadora + Usuário em Linha
+                        // Linha 1: Código + Usuário Lado a Lado (Design Compacto e Seguro)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            OutlinedTextField(
+                            CompactInputField(
                                 value = serverCode,
                                 onValueChange = { serverCode = it },
-                                label = { Text("Código / Rota", fontSize = 11.sp) },
-                                leadingIcon = {
-                                    Icon(Icons.Default.Dns, contentDescription = null, tint = Color(0xFFFF8A00), modifier = Modifier.size(17.dp))
-                                },
-                                singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White,
-                                    focusedBorderColor = Color(0xFF00E5FF),
-                                    unfocusedBorderColor = Color(0xFF2A2645),
-                                    focusedLabelColor = Color(0xFF00E5FF),
-                                    unfocusedLabelColor = Color(0xFF888888)
-                                ),
+                                placeholder = "Código / Rota",
+                                icon = Icons.Default.Dns,
+                                iconColor = Color(0xFFFF8A00),
                                 modifier = Modifier.weight(0.38f)
                             )
 
-                            OutlinedTextField(
+                            CompactInputField(
                                 value = user,
                                 onValueChange = { user = it },
-                                label = { Text("Usuário", fontSize = 11.sp) },
-                                leadingIcon = {
-                                    Icon(Icons.Default.Person, contentDescription = null, tint = Color(0xFF9D00FF), modifier = Modifier.size(17.dp))
-                                },
-                                singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White,
-                                    focusedBorderColor = Color(0xFF00E5FF),
-                                    unfocusedBorderColor = Color(0xFF2A2645),
-                                    focusedLabelColor = Color(0xFF00E5FF),
-                                    unfocusedLabelColor = Color(0xFF888888)
-                                ),
+                                placeholder = "Usuário",
+                                icon = Icons.Default.Person,
+                                iconColor = Color(0xFF9D00FF),
                                 modifier = Modifier.weight(0.62f)
                             )
                         }
 
-                        // Campo de Senha
-                        OutlinedTextField(
+                        // Linha 2: Senha com Ícone de Olho
+                        CompactInputField(
                             value = pass,
                             onValueChange = { pass = it },
-                            label = { Text("Senha", fontSize = 11.sp) },
-                            leadingIcon = {
-                                Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFF00F0FF), modifier = Modifier.size(17.dp))
-                            },
-                            trailingIcon = {
-                                IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
-                                    Icon(
-                                        imageVector = if (isPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                        contentDescription = if (isPasswordVisible) "Ocultar senha" else "Mostrar senha",
-                                        tint = if (isPasswordVisible) Color(0xFF00E5FF) else Color(0xFF888888),
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            },
-                            singleLine = true,
-                            visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                focusedBorderColor = Color(0xFF00E5FF),
-                                unfocusedBorderColor = Color(0xFF2A2645),
-                                focusedLabelColor = Color(0xFF00E5FF),
-                                unfocusedLabelColor = Color(0xFF888888)
-                            ),
+                            placeholder = "Senha",
+                            icon = Icons.Default.Lock,
+                            iconColor = Color(0xFF00F0FF),
+                            isPassword = true,
+                            isPasswordVisible = isPasswordVisible,
+                            onTogglePassword = { isPasswordVisible = !isPasswordVisible },
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        // Checkbox Mostrar Senha
+                        // Linha 3: Checkbox Mostrar Senha
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -530,41 +442,31 @@ fun LoginScreen(
                                     onCheckedChange = { isPasswordVisible = it },
                                     colors = CheckboxDefaults.colors(
                                         checkedColor = Color(0xFF00E5FF),
-                                        uncheckedColor = Color(0xFF888888)
-                                    )
+                                        uncheckedColor = Color(0xFF777777)
+                                    ),
+                                    modifier = Modifier.size(24.dp)
                                 )
+                                Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = "Mostrar senha",
-                                    color = Color(0xFFDDDDDD),
-                                    fontSize = 11.sp,
+                                    text = "Mostrar senha digitada",
+                                    color = Color(0xFFCCCCCC),
+                                    fontSize = 10.sp,
                                     fontWeight = FontWeight.Medium
                                 )
                             }
 
-                            Surface(
-                                color = Color.White.copy(alpha = 0.05f),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
+                            if (errorMessage != null) {
                                 Text(
-                                    text = if (isPasswordVisible) "Senha visível" else "Senha oculta",
-                                    color = if (isPasswordVisible) Color(0xFF00E5FF) else Color(0xFF888888),
+                                    text = errorMessage ?: "",
+                                    color = Color(0xFFFF5252),
                                     fontSize = 9.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
                                 )
                             }
                         }
 
-                        if (errorMessage != null) {
-                            Text(
-                                text = errorMessage ?: "",
-                                color = Color(0xFFFF5252),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        // BOTÃO ENTRAR (GRADIENTE OFICIAL DRAV•TV)
+                        // Linha 4: BOTÃO ENTRAR NO DRAV•TV (100% VISÍVEL DENTRO DO QUADRADO, ZERO ROLAGEM)
                         Button(
                             onClick = {
                                 if (serverCode.isNotBlank() && user.isNotBlank() && pass.isNotBlank()) {
@@ -577,7 +479,7 @@ fun LoginScreen(
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(46.dp)
+                                .height(44.dp)
                                 .focusable()
                                 .onFocusChanged { isButtonFocused = it.isFocused }
                                 .border(
@@ -609,7 +511,7 @@ fun LoginScreen(
                                         Text(
                                             text = "ENTRAR NO DRAV•TV",
                                             fontWeight = FontWeight.Black,
-                                            fontSize = 14.sp,
+                                            fontSize = 13.5.sp,
                                             color = Color.White,
                                             letterSpacing = 1.sp
                                         )
@@ -624,42 +526,113 @@ fun LoginScreen(
                                 }
                             }
                         }
-
-                        // Rodapé do Card
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 2.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("Controle ou toque", color = Color(0xFF6E7681), fontSize = 9.sp)
-                            Text("Engine: Pro 4K", color = Color(0xFF00E5FF), fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                        }
                     }
                 }
             }
 
             // ==========================================
-            // RODAPÉ INFERIOR DA TELA
+            // RODAPÉ INFERIOR (ULTRA COMPACTO)
             // ==========================================
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 2.dp),
+                    .height(20.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = "© 2026 DRAV•TV • Todos os direitos reservados",
                     color = Color(0xFF555555),
-                    fontSize = 10.sp
+                    fontSize = 9.sp
                 )
                 Text(
-                    text = "Widescreen • Compatível com Smart TV, TV Box & Mobile",
+                    text = "Compatível com Smart TV, TV Box & Celular Horizontal",
                     color = Color(0xFF555555),
-                    fontSize = 10.sp
+                    fontSize = 9.sp
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun CompactInputField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconColor: Color,
+    modifier: Modifier = Modifier,
+    isPassword: Boolean = false,
+    isPasswordVisible: Boolean = false,
+    onTogglePassword: (() -> Unit)? = null
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    Box(
+        modifier = modifier
+            .height(38.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (isFocused) Color(0xFF161428) else Color(0xFF0A0914))
+            .border(
+                width = if (isFocused) 1.5.dp else 1.dp,
+                color = if (isFocused) Color(0xFF00E5FF) else Color(0xFF2A2645),
+                shape = RoundedCornerShape(8.dp)
+            )
+            .padding(horizontal = 10.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (isFocused) Color(0xFF00E5FF) else iconColor,
+                modifier = Modifier.size(16.dp)
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Box(modifier = Modifier.weight(1f)) {
+                if (value.isEmpty()) {
+                    Text(
+                        text = placeholder,
+                        color = Color(0xFF6E6A8A),
+                        fontSize = 11.sp
+                    )
+                }
+
+                BasicTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    singleLine = true,
+                    textStyle = TextStyle(
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    visualTransformation = if (isPassword && !isPasswordVisible) PasswordVisualTransformation() else VisualTransformation.None,
+                    cursorBrush = SolidColor(Color(0xFF00E5FF)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onFocusChanged { isFocused = it.isFocused }
+                )
+            }
+
+            if (isPassword && onTogglePassword != null) {
+                IconButton(
+                    onClick = onTogglePassword,
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                        contentDescription = "Mostrar senha",
+                        tint = if (isPasswordVisible) Color(0xFF00E5FF) else Color(0xFF888888),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
             }
         }
     }
