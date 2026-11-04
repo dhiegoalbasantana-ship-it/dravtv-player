@@ -173,7 +173,7 @@ class MainActivity : ComponentActivity() {
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Image(
-                                    painter = painterResource(id = R.drawable.logo_dravtv_3d),
+                                    painter = painterResource(id = R.drawable.logo_dravtv_official),
                                     contentDescription = "DravTV",
                                     modifier = Modifier.height(110.dp)
                                 )
