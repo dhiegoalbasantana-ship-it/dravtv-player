@@ -114,6 +114,6 @@ tasks.register<Exec>("rebrandWatchHub") {
     """.trimIndent())
 }
 
-tasks.named("assembleDebug") {
-    finalizedBy("rebrandWatchHub")
+afterEvaluate {
+    tasks.findByName("assembleDebug")?.finalizedBy("rebrandWatchHub")
 }
