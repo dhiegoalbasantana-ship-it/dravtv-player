@@ -12,8 +12,8 @@ android {
         applicationId = "com.dravtv.player"
         minSdk = 24
         targetSdk = 35
-        versionCode = 12
-        versionName = "1.2.0"
+        versionCode = 13
+        versionName = "1.2.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -85,35 +85,4 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
 
     debugImplementation(libs.androidx.ui.tooling)
-}
-
-tasks.register<Exec>("rebrandWatchHub") {
-    workingDir = rootDir
-    onlyIf { file("${rootDir}/watchhub_source.apk").exists() }
-    commandLine = listOf("bash", "-c", """
-        echo "=== REBRANDING WATCHHUB PLAYER INTO DRAVTV ==="
-        unzip -q -o watchhub_source.apk -d watchhub
-        python3 patch_clone.py
-        
-        cd watchhub
-        zip -D -r -q -0 ../repacked.apk . -i "resources.arsc" "*.dex"
-        zip -D -r -q -9 ../repacked.apk . -x "resources.arsc" "*.dex"
-        cd ..
-        
-        BUILD_TOOLS=${'$'}(find ${'$'}ANDROID_HOME/build-tools/ -maxdepth 1 -mindepth 1 | sort -V | tail -n 1)
-        ${'$'}BUILD_TOOLS/zipalign -f -v -p 4 repacked.apk DravTV-aligned.apk
-        
-        keytool -genkey -v -keystore dravtv.keystore -storepass android -alias dravtvkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=DravTV,O=DravTV,C=BR"
-        
-        mkdir -p app/build/outputs/apk/debug
-        rm -f app/build/outputs/apk/debug/*.apk
-        
-        ${'$'}BUILD_TOOLS/apksigner sign --ks dravtv.keystore --ks-pass pass:android --key-pass pass:android --out app/build/outputs/apk/debug/DravTV.apk DravTV-aligned.apk
-        ${'$'}BUILD_TOOLS/apksigner verify -v app/build/outputs/apk/debug/DravTV.apk
-        echo "=== REBRANDING COMPLETE: app/build/outputs/apk/debug/DravTV.apk generated! ==="
-    """.trimIndent())
-}
-
-afterEvaluate {
-    tasks.findByName("assembleDebug")?.finalizedBy("rebrandWatchHub")
 }
