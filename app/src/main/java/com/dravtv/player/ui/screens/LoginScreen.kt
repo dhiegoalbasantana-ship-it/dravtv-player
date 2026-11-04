@@ -1,636 +1,363 @@
 package com.dravtv.player.ui.screens
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dravtv.player.R
-import java.text.SimpleDateFormat
-import java.util.*
 
 @Composable
 fun LoginScreen(
-    initialServerCode: String = "4100",
+    initialServerCode: String = "",
     initialUser: String = "",
     initialPass: String = "",
     onLoginSuccess: (serverCode: String, user: String, pass: String) -> Unit
 ) {
-    var serverCode by remember { mutableStateOf(if (initialServerCode.isNotBlank()) initialServerCode else "4100") }
+    // Conforme instrução expressa do usuário:
+    // "o codigo deixa em branco e quando a pessoa clicar ela digita o codigo que ela quer sem aparecer nenhum codigo"
+    var serverCode by remember { mutableStateOf(initialServerCode) }
     var user by remember { mutableStateOf(initialUser) }
     var pass by remember { mutableStateOf(initialPass) }
     var isPasswordVisible by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    val focusManager = LocalFocusManager.current
+    val userFocusRequester = remember { FocusRequester() }
+    val passFocusRequester = remember { FocusRequester() }
+    val btnFocusRequester = remember { FocusRequester() }
+
+    var isCodeFocused by remember { mutableStateOf(false) }
+    var isUserFocused by remember { mutableStateOf(false) }
+    var isPassFocused by remember { mutableStateOf(false) }
     var isButtonFocused by remember { mutableStateOf(false) }
 
-    var currentTime by remember {
-        mutableStateOf(SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date()))
-    }
-    LaunchedEffect(Unit) {
-        while (true) {
-            kotlinx.coroutines.delay(10000L)
-            currentTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+    fun submitLogin() {
+        if (serverCode.isBlank()) {
+            errorMessage = "Digite o código do servidor."
+            return
         }
+        if (user.isBlank()) {
+            errorMessage = "Digite seu usuário."
+            return
+        }
+        if (pass.isBlank()) {
+            errorMessage = "Digite sua senha."
+            return
+        }
+        errorMessage = null
+        isLoading = true
+        onLoginSuccess(serverCode.trim(), user.trim(), pass.trim())
     }
 
-    val quickRoutes = listOf(
-        "4100" to "Principal",
-        "4102" to "Rota 2",
-        "4103" to "Rota 3",
-        "4104" to "Inter",
-        "dravbr" to "BR Natv"
-    )
-
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF030207))
+            .background(Color(0xFF030207)),
+        contentAlignment = Alignment.Center
     ) {
-        // Auras neon de fundo
-        Box(
-            modifier = Modifier
-                .size(340.dp)
-                .offset(x = (-80).dp, y = (-80).dp)
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(Color(0xFFFF8A00).copy(alpha = 0.12f), Color.Transparent)
-                    )
-                )
-        )
-        Box(
-            modifier = Modifier
-                .size(320.dp)
-                .align(Alignment.CenterStart)
-                .offset(x = 100.dp)
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(Color(0xFF9D00FF).copy(alpha = 0.14f), Color.Transparent)
-                    )
-                )
-        )
-        Box(
-            modifier = Modifier
-                .size(360.dp)
-                .align(Alignment.BottomEnd)
-                .offset(x = 80.dp, y = 80.dp)
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(Color(0xFF00F0FF).copy(alpha = 0.14f), Color.Transparent)
-                    )
-                )
-        )
+        val screenW = maxWidth
+        val screenH = maxHeight
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            // ==========================================
-            // BARRA DE STATUS SUPERIOR (ULTRA COMPACTA)
-            // ==========================================
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(28.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        color = Color.White.copy(alpha = 0.05f),
-                        shape = RoundedCornerShape(6.dp),
-                        border = CardDefaults.outlinedCardBorder().copy(
-                            brush = Brush.linearGradient(listOf(Color.White.copy(alpha = 0.12f), Color.Transparent))
-                        )
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(6.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF00E676))
-                            )
-                            Spacer(modifier = Modifier.width(5.dp))
-                            Text(
-                                text = "Servidor Online",
-                                color = Color(0xFFEEEEEE),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(10.dp))
-
-                    Text(
-                        text = "Ultra HD 4K • IPTV Engine",
-                        color = Color(0xFF8B949E),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text(
-                        text = "Preencher Teste",
-                        color = Color(0xFFFFD000),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier
-                            .clickable {
-                                serverCode = "4100"
-                                user = "testedrav"
-                                pass = "32652901781"
-                            }
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
-
-                    Surface(
-                        color = Color.White.copy(alpha = 0.05f),
-                        shape = RoundedCornerShape(6.dp),
-                        border = CardDefaults.outlinedCardBorder().copy(
-                            brush = Brush.linearGradient(listOf(Color.White.copy(alpha = 0.12f), Color.Transparent))
-                        )
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Schedule,
-                                contentDescription = null,
-                                tint = Color(0xFF9D00FF),
-                                modifier = Modifier.size(11.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = currentTime,
-                                color = Color.White,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-            }
-
-            // ==========================================
-            // CONTEÚDO CENTRAL: 2 COLUNAS HORIZONTAIS
-            // ==========================================
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // COLUNA ESQUERDA: BRANDING DRAV•TV (40% LARGURA)
-                Column(
-                    modifier = Modifier
-                        .weight(0.40f)
-                        .fillMaxHeight(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.logo_dravtv_3d),
-                        contentDescription = "DRAV•TV",
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier
-                            .height(100.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = "DRAV•TV",
-                        color = Color.White,
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 2.sp
-                    )
-
-                    Text(
-                        text = "VENHA PARA O FUTURO",
-                        color = Color(0xFF00E5FF),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 2.5.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Surface(
-                            color = Color.White.copy(alpha = 0.05f),
-                            shape = RoundedCornerShape(6.dp),
-                            border = CardDefaults.outlinedCardBorder().copy(
-                                brush = Brush.linearGradient(listOf(Color.White.copy(alpha = 0.1f), Color.Transparent))
-                            )
-                        ) {
-                            Text(
-                                text = "🎬 +15.000 Canais & VOD",
-                                color = Color(0xFFCCCCCC),
-                                fontSize = 8.5.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                            )
-                        }
-
-                        Surface(
-                            color = Color.White.copy(alpha = 0.05f),
-                            shape = RoundedCornerShape(6.dp),
-                            border = CardDefaults.outlinedCardBorder().copy(
-                                brush = Brush.linearGradient(listOf(Color.White.copy(alpha = 0.1f), Color.Transparent))
-                            )
-                        ) {
-                            Text(
-                                text = "⚡ Anti-Trava P2P",
-                                color = Color(0xFF00E5FF),
-                                fontSize = 8.5.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                // COLUNA DIREITA: QUADRADO GLASSMORPHISM COM TUDO DENTRO SEM ROLAGEM (60% LARGURA)
-                Card(
-                    modifier = Modifier
-                        .weight(0.60f)
-                        .fillMaxHeight(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0E0C1C).copy(alpha = 0.94f)),
-                    shape = RoundedCornerShape(16.dp),
-                    border = CardDefaults.outlinedCardBorder().copy(
-                        brush = Brush.linearGradient(
-                            listOf(Color(0xFFFF8A00).copy(alpha = 0.7f), Color(0xFF9D00FF).copy(alpha = 0.7f), Color(0xFF00F0FF).copy(alpha = 0.8f))
-                        )
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 18.dp, vertical = 12.dp),
-                        verticalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        // Título do Quadrado
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = "Acesso ao Painel",
-                                    color = Color.White,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.width(5.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .size(5.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFF00F0FF))
-                                )
-                            }
-                            Text(
-                                text = "Informe código, usuário e senha",
-                                color = Color(0xFF8B949E),
-                                fontSize = 9.sp
-                            )
-                        }
-
-                        // Seletores Rápidos de Rota (Botões Compactos)
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
-                        ) {
-                            quickRoutes.forEach { (code, label) ->
-                                val isSelected = serverCode == code
-                                var isFocused by remember { mutableStateOf(false) }
-
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .focusable()
-                                        .onFocusChanged { isFocused = it.isFocused }
-                                        .background(
-                                            when {
-                                                isSelected -> Color(0xFF00E5FF)
-                                                isFocused -> Color(0xFF26324A)
-                                                else -> Color(0xFF161427)
-                                            }
-                                        )
-                                        .border(
-                                            width = if (isFocused) 2.dp else 1.dp,
-                                            color = when {
-                                                isFocused -> Color.White
-                                                isSelected -> Color(0xFF00E5FF)
-                                                else -> Color(0xFF2A2645)
-                                            },
-                                            shape = RoundedCornerShape(6.dp)
-                                        )
-                                        .clickable { serverCode = code }
-                                        .padding(vertical = 4.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text(
-                                            text = code,
-                                            color = if (isSelected) Color.Black else Color.White,
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Text(
-                                            text = label,
-                                            color = if (isSelected) Color(0xFF111111) else Color(0xFF888888),
-                                            fontSize = 7.5.sp
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        // Linha 1: Código + Usuário Lado a Lado (Design Compacto e Seguro)
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            CompactInputField(
-                                value = serverCode,
-                                onValueChange = { serverCode = it },
-                                placeholder = "Código / Rota",
-                                icon = Icons.Default.Dns,
-                                iconColor = Color(0xFFFF8A00),
-                                modifier = Modifier.weight(0.38f)
-                            )
-
-                            CompactInputField(
-                                value = user,
-                                onValueChange = { user = it },
-                                placeholder = "Usuário",
-                                icon = Icons.Default.Person,
-                                iconColor = Color(0xFF9D00FF),
-                                modifier = Modifier.weight(0.62f)
-                            )
-                        }
-
-                        // Linha 2: Senha com Ícone de Olho
-                        CompactInputField(
-                            value = pass,
-                            onValueChange = { pass = it },
-                            placeholder = "Senha",
-                            icon = Icons.Default.Lock,
-                            iconColor = Color(0xFF00F0FF),
-                            isPassword = true,
-                            isPasswordVisible = isPasswordVisible,
-                            onTogglePassword = { isPasswordVisible = !isPasswordVisible },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        // Linha 3: Checkbox Mostrar Senha
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.clickable { isPasswordVisible = !isPasswordVisible }
-                            ) {
-                                Checkbox(
-                                    checked = isPasswordVisible,
-                                    onCheckedChange = { isPasswordVisible = it },
-                                    colors = CheckboxDefaults.colors(
-                                        checkedColor = Color(0xFF00E5FF),
-                                        uncheckedColor = Color(0xFF777777)
-                                    ),
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "Mostrar senha digitada",
-                                    color = Color(0xFFCCCCCC),
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-
-                            if (errorMessage != null) {
-                                Text(
-                                    text = errorMessage ?: "",
-                                    color = Color(0xFFFF5252),
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1
-                                )
-                            }
-                        }
-
-                        // Linha 4: BOTÃO ENTRAR NO DRAV•TV (100% VISÍVEL DENTRO DO QUADRADO, ZERO ROLAGEM)
-                        Button(
-                            onClick = {
-                                if (serverCode.isNotBlank() && user.isNotBlank() && pass.isNotBlank()) {
-                                    isLoading = true
-                                    errorMessage = null
-                                    onLoginSuccess(serverCode.trim(), user.trim(), pass.trim())
-                                } else {
-                                    errorMessage = "Preencha o código, usuário e senha."
-                                }
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(44.dp)
-                                .focusable()
-                                .onFocusChanged { isButtonFocused = it.isFocused }
-                                .border(
-                                    width = if (isButtonFocused) 3.dp else 0.dp,
-                                    color = if (isButtonFocused) Color(0xFF00E5FF) else Color.Transparent,
-                                    shape = RoundedCornerShape(10.dp)
-                                ),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-                            contentPadding = PaddingValues(),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(
-                                        Brush.horizontalGradient(
-                                            listOf(Color(0xFFFF9900), Color(0xFFFF2E93), Color(0xFF8F00FF), Color(0xFF00E5FF))
-                                        )
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (isLoading) {
-                                    CircularProgressIndicator(
-                                        color = Color.White,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                } else {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = "ENTRAR NO DRAV•TV",
-                                            fontWeight = FontWeight.Black,
-                                            fontSize = 13.5.sp,
-                                            color = Color.White,
-                                            letterSpacing = 1.sp
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Icon(
-                                            imageVector = Icons.Default.PlayCircle,
-                                            contentDescription = null,
-                                            tint = Color.White,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // ==========================================
-            // RODAPÉ INFERIOR (ULTRA COMPACTO)
-            // ==========================================
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(20.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "© 2026 DRAV•TV • Todos os direitos reservados",
-                    color = Color(0xFF555555),
-                    fontSize = 9.sp
-                )
-                Text(
-                    text = "Compatível com Smart TV, TV Box & Celular Horizontal",
-                    color = Color(0xFF555555),
-                    fontSize = 9.sp
-                )
-            }
+        // Calcula proporção 16:9 perfeita para televisores e celulares horizontais
+        val bannerW = if (screenW / screenH > 16f / 9f) {
+            screenH * (16f / 9f)
+        } else {
+            screenW
         }
-    }
-}
+        val bannerH = bannerW / (16f / 9f)
 
-@Composable
-fun CompactInputField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    placeholder: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    iconColor: Color,
-    modifier: Modifier = Modifier,
-    isPassword: Boolean = false,
-    isPasswordVisible: Boolean = false,
-    onTogglePassword: (() -> Unit)? = null
-) {
-    var isFocused by remember { mutableStateOf(false) }
-
-    Box(
-        modifier = modifier
-            .height(38.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (isFocused) Color(0xFF161428) else Color(0xFF0A0914))
-            .border(
-                width = if (isFocused) 1.5.dp else 1.dp,
-                color = if (isFocused) Color(0xFF00E5FF) else Color(0xFF2A2645),
-                shape = RoundedCornerShape(8.dp)
-            )
-            .padding(horizontal = 10.dp),
-        contentAlignment = Alignment.CenterStart
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+        Box(
+            modifier = Modifier
+                .width(bannerW)
+                .height(bannerH)
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = if (isFocused) Color(0xFF00E5FF) else iconColor,
-                modifier = Modifier.size(16.dp)
+            // ==========================================
+            // 1. BANNER OFICIAL DE LOGIN NA ÍNTEGRA
+            // ==========================================
+            Image(
+                painter = painterResource(id = R.drawable.banner_login),
+                contentDescription = "Tela de Login DravTV",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.FillBounds
             )
 
-            Spacer(modifier = Modifier.width(8.dp))
+            // Dimensões relativas à proporção original do banner (1024 x 576):
+            // Inputs: x=565, width=385, height=54
+            val boxLeft = bannerW * (565f / 1024f)
+            val boxWidth = bannerW * (385f / 1024f)
+            val boxHeight = bannerH * (54f / 576f)
 
-            Box(modifier = Modifier.weight(1f)) {
-                if (value.isEmpty()) {
-                    Text(
-                        text = placeholder,
-                        color = Color(0xFF6E6A8A),
-                        fontSize = 11.sp
+            // ==========================================
+            // CAMPO 1: CÓDIGO (Em branco por padrão)
+            // ==========================================
+            val codeTop = bannerH * (172f / 576f)
+            Box(
+                modifier = Modifier
+                    .offset(x = boxLeft, y = codeTop)
+                    .width(boxWidth)
+                    .height(boxHeight)
+                    .clip(RoundedCornerShape(26.dp))
+                    .background(
+                        if (isCodeFocused) Color(0x3300F0FF)
+                        else if (serverCode.isNotEmpty()) Color(0xFF131428)
+                        else Color.Transparent
                     )
-                }
-
+                    .border(
+                        width = if (isCodeFocused) 2.dp else 1.dp,
+                        brush = if (isCodeFocused) Brush.horizontalGradient(listOf(Color(0xFFFF8A00), Color(0xFF00F0FF)))
+                                else SolidColor(Color.Transparent),
+                        shape = RoundedCornerShape(26.dp)
+                    )
+                    .onFocusChanged { isCodeFocused = it.isFocused },
+                contentAlignment = Alignment.CenterStart
+            ) {
                 BasicTextField(
-                    value = value,
-                    onValueChange = onValueChange,
+                    value = serverCode,
+                    onValueChange = { serverCode = it },
                     singleLine = true,
                     textStyle = TextStyle(
                         color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
+                        fontSize = (bannerH.value * 0.038f).sp,
+                        fontWeight = FontWeight.Bold
                     ),
-                    visualTransformation = if (isPassword && !isPasswordVisible) PasswordVisualTransformation() else VisualTransformation.None,
-                    cursorBrush = SolidColor(Color(0xFF00E5FF)),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Text,
+                        imeAction = ImeAction.Next
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onNext = { userFocusRequester.requestFocus() }
+                    ),
+                    cursorBrush = SolidColor(Color(0xFF00F0FF)),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .onFocusChanged { isFocused = it.isFocused }
+                        .padding(start = boxWidth * 0.14f, end = 16.dp)
                 )
             }
 
-            if (isPassword && onTogglePassword != null) {
-                IconButton(
-                    onClick = onTogglePassword,
-                    modifier = Modifier.size(24.dp)
+            // ==========================================
+            // CAMPO 2: USUÁRIO
+            // ==========================================
+            val userTop = bannerH * (238f / 576f)
+            Box(
+                modifier = Modifier
+                    .offset(x = boxLeft, y = userTop)
+                    .width(boxWidth)
+                    .height(boxHeight)
+                    .clip(RoundedCornerShape(26.dp))
+                    .background(
+                        if (isUserFocused) Color(0x3300F0FF)
+                        else if (user.isNotEmpty()) Color(0xFF131428)
+                        else Color.Transparent
+                    )
+                    .border(
+                        width = if (isUserFocused) 2.dp else 1.dp,
+                        brush = if (isUserFocused) Brush.horizontalGradient(listOf(Color(0xFFFF8A00), Color(0xFF00F0FF)))
+                                else SolidColor(Color.Transparent),
+                        shape = RoundedCornerShape(26.dp)
+                    )
+                    .onFocusChanged { isUserFocused = it.isFocused },
+                contentAlignment = Alignment.CenterStart
+            ) {
+                BasicTextField(
+                    value = user,
+                    onValueChange = { user = it },
+                    singleLine = true,
+                    textStyle = TextStyle(
+                        color = Color.White,
+                        fontSize = (bannerH.value * 0.038f).sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Text,
+                        imeAction = ImeAction.Next
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onNext = { passFocusRequester.requestFocus() }
+                    ),
+                    cursorBrush = SolidColor(Color(0xFF00F0FF)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = boxWidth * 0.14f, end = 16.dp)
+                        .focusRequester(userFocusRequester)
+                )
+            }
+
+            // ==========================================
+            // CAMPO 3: SENHA (+ Ícone de Revelar Senha)
+            // ==========================================
+            val passTop = bannerH * (308f / 576f)
+            Box(
+                modifier = Modifier
+                    .offset(x = boxLeft, y = passTop)
+                    .width(boxWidth)
+                    .height(boxHeight)
+                    .clip(RoundedCornerShape(26.dp))
+                    .background(
+                        if (isPassFocused) Color(0x3300F0FF)
+                        else if (pass.isNotEmpty()) Color(0xFF131428)
+                        else Color.Transparent
+                    )
+                    .border(
+                        width = if (isPassFocused) 2.dp else 1.dp,
+                        brush = if (isPassFocused) Brush.horizontalGradient(listOf(Color(0xFFFF8A00), Color(0xFF00F0FF)))
+                                else SolidColor(Color.Transparent),
+                        shape = RoundedCornerShape(26.dp)
+                    )
+                    .onFocusChanged { isPassFocused = it.isFocused },
+                contentAlignment = Alignment.CenterStart
+            ) {
+                BasicTextField(
+                    value = pass,
+                    onValueChange = { pass = it },
+                    singleLine = true,
+                    visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    textStyle = TextStyle(
+                        color = Color.White,
+                        fontSize = (bannerH.value * 0.038f).sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            focusManager.clearFocus()
+                            submitLogin()
+                        }
+                    ),
+                    cursorBrush = SolidColor(Color(0xFF00F0FF)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = boxWidth * 0.14f, end = boxWidth * 0.16f)
+                        .focusRequester(passFocusRequester)
+                )
+
+                // Botão de Olho Interativo no canto direito do campo
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .size(boxHeight)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { isPasswordVisible = !isPasswordVisible },
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = if (isPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                        contentDescription = "Mostrar senha",
-                        tint = if (isPasswordVisible) Color(0xFF00E5FF) else Color(0xFF888888),
-                        modifier = Modifier.size(16.dp)
+                        contentDescription = "Mostrar Senha",
+                        tint = if (isPasswordVisible) Color(0xFF00F0FF) else Color.White.copy(alpha = 0.5f),
+                        modifier = Modifier.size((boxHeight.value * 0.42f).dp)
+                    )
+                }
+            }
+
+            // ==========================================
+            // BOTÃO: ENTRAR (Perfeitamente posicionado sobre o banner)
+            // ==========================================
+            val btnLeft = bannerW * (580f / 1024f)
+            val btnWidth = bannerW * (340f / 1024f)
+            val btnTop = bannerH * (388f / 576f)
+            val btnHeight = bannerH * (67f / 576f)
+
+            val btnScale by animateFloatAsState(
+                targetValue = if (isButtonFocused) 1.05f else 1.0f,
+                animationSpec = tween(150),
+                label = "btnScale"
+            )
+
+            Box(
+                modifier = Modifier
+                    .offset(x = btnLeft, y = btnTop)
+                    .width(btnWidth)
+                    .height(btnHeight)
+                    .scale(btnScale)
+                    .clip(RoundedCornerShape(34.dp))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        enabled = !isLoading
+                    ) { submitLogin() }
+                    .focusable()
+                    .focusRequester(btnFocusRequester)
+                    .onFocusChanged { isButtonFocused = it.isFocused }
+                    .border(
+                        width = if (isButtonFocused) 3.dp else 1.dp,
+                        brush = if (isButtonFocused) Brush.horizontalGradient(
+                            listOf(Color(0xFF00F0FF), Color(0xFFFFD000), Color(0xFFFF007A))
+                        ) else SolidColor(Color.Transparent),
+                        shape = RoundedCornerShape(34.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.5.dp
+                    )
+                }
+            }
+
+            // ==========================================
+            // MENSAGEM DE ERRO (Se houver)
+            // ==========================================
+            errorMessage?.let { error ->
+                Box(
+                    modifier = Modifier
+                        .offset(x = boxLeft, y = bannerH * (470f / 576f))
+                        .width(boxWidth)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xDDCC0000))
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = error,
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }

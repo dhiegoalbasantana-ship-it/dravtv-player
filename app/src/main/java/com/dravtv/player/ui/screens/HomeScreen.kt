@@ -1,37 +1,39 @@
 package com.dravtv.player.ui.screens
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dravtv.player.R
-import java.text.SimpleDateFormat
-import java.util.*
 
 @Composable
 fun HomeScreen(
@@ -46,344 +48,312 @@ fun HomeScreen(
 ) {
     var showUserModal by remember { mutableStateOf(false) }
 
-    var currentTime by remember {
-        mutableStateOf(SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date()))
-    }
+    // Estados de Foco para Controle Remoto de TV
+    var isLiveFocused by remember { mutableStateOf(true) } // Começa focado no primeiro card
+    var isVodFocused by remember { mutableStateOf(false) }
+    var isSeriesFocused by remember { mutableStateOf(false) }
+    var isProfileFocused by remember { mutableStateOf(false) }
+    var isSettingsFocused by remember { mutableStateOf(false) }
+
+    val liveFocusRequester = remember { FocusRequester() }
+
     LaunchedEffect(Unit) {
-        while (true) {
-            kotlinx.coroutines.delay(10000L)
-            currentTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
-        }
+        try {
+            liveFocusRequester.requestFocus()
+        } catch (_: Exception) {}
     }
 
-    Box(
+    // ==========================================
+    // ANIMAÇÃO DE MOVIMENTO DO LOGO DRAV•TV
+    // (Levitação 3D + Pulso Neon Contínuo)
+    // ==========================================
+    val infiniteTransition = rememberInfiniteTransition(label = "logoAnimation")
+
+    val floatOffsetY by infiniteTransition.animateFloat(
+        initialValue = -7f,
+        targetValue = 7f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2400, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "logoFloat"
+    )
+
+    val logoScale by infiniteTransition.animateFloat(
+        initialValue = 0.985f,
+        targetValue = 1.025f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 3000, easing = LinearOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "logoScale"
+    )
+
+    val logoGlowAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.85f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "logoGlowAlpha"
+    )
+
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF030207))
+            .background(Color(0xFF030207)),
+        contentAlignment = Alignment.Center
     ) {
-        // Luzes e auras de fundo reativas
-        Box(
-            modifier = Modifier
-                .size(340.dp)
-                .offset(x = (-80).dp, y = (-80).dp)
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(Color(0xFFFF8A00).copy(alpha = 0.14f), Color.Transparent)
-                    )
-                )
-        )
-        Box(
-            modifier = Modifier
-                .size(360.dp)
-                .align(Alignment.Center)
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(Color(0xFF9D00FF).copy(alpha = 0.14f), Color.Transparent)
-                    )
-                )
-        )
-        Box(
-            modifier = Modifier
-                .size(380.dp)
-                .align(Alignment.BottomEnd)
-                .offset(x = 80.dp, y = 80.dp)
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(Color(0xFF00F0FF).copy(alpha = 0.14f), Color.Transparent)
-                    )
-                )
-        )
+        val screenW = maxWidth
+        val screenH = maxHeight
 
-        Column(
+        // Calcula proporção 16:9 perfeita
+        val bannerW = if (screenW / screenH > 16f / 9f) {
+            screenH * (16f / 9f)
+        } else {
+            screenW
+        }
+        val bannerH = bannerW / (16f / 9f)
+
+        Box(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+                .width(bannerW)
+                .height(bannerH)
         ) {
             // ==========================================
-            // TOPO: LOGO DRAV•TV + RELÓGIO + USUÁRIO + CONFIGURAÇÕES (COMPACTO)
+            // 1. BANNER OFICIAL DA TELA INICIAL NA ÍNTEGRA
             // ==========================================
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(38.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Identidade Visual DRAV•TV
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.logo_dravtv_3d),
-                        contentDescription = "DRAV•TV",
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier
-                            .height(34.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                    )
+            Image(
+                painter = painterResource(id = R.drawable.banner_home),
+                contentDescription = "Tela Inicial DravTV",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.FillBounds
+            )
 
-                    Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "DRAV•TV",
-                                color = Color.White,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 1.5.sp
+            // ==========================================
+            // 2. LOGO DRAV•TV EM MOVIMENTO CONTÍNUO
+            // ==========================================
+            val logoLeft = bannerW * (95f / 1024f)
+            val logoTop = bannerH * (45f / 576f)
+            val logoWidth = bannerW * (370f / 1024f)
+            val logoHeight = bannerH * (160f / 576f)
+
+            Box(
+                modifier = Modifier
+                    .offset(x = logoLeft, y = logoTop + floatOffsetY.dp)
+                    .width(logoWidth)
+                    .height(logoHeight)
+                    .scale(logoScale)
+                    .alpha(logoGlowAlpha),
+                contentAlignment = Alignment.Center
+            ) {
+                // Aura neon sutil de fundo que respira junto com o logo
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.radialGradient(
+                                colors = listOf(
+                                    Color(0xFF9D00FF).copy(alpha = 0.22f * logoGlowAlpha),
+                                    Color(0xFF00F0FF).copy(alpha = 0.12f * logoGlowAlpha),
+                                    Color.Transparent
+                                )
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Surface(
-                                color = Color(0xFF00E676).copy(alpha = 0.15f),
-                                border = CardDefaults.outlinedCardBorder().copy(
-                                    brush = Brush.linearGradient(listOf(Color(0xFF00E676), Color(0xFF00E5FF)))
-                                ),
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(5.dp)
-                                            .clip(CircleShape)
-                                            .background(Color(0xFF00E676))
-                                    )
-                                    Spacer(modifier = Modifier.width(3.dp))
-                                    Text(
-                                        text = "4K LIVE",
-                                        color = Color(0xFF00E676),
-                                        fontSize = 8.sp,
-                                        fontWeight = FontWeight.ExtraBold
-                                    )
-                                }
-                            }
-                        }
-                        Text(
-                            text = "VENHA PARA O FUTURO",
-                            color = Color(0xFF00E5FF),
-                            fontSize = 8.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 2.sp
                         )
-                    }
-                }
+                )
 
-                // Ações do Topo: Relógio + Perfil Discreto + Configurações
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Image(
+                    painter = painterResource(id = R.drawable.logo_dravtv_animated),
+                    contentDescription = "Logo DravTV em Movimento",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
+            }
+
+            // ==========================================
+            // 3. TOPO DIREITO: VALIDADE DA LISTA + PERFIL + CONFIGURAÇÕES
+            // ==========================================
+            // Badge Validade da Lista (x: 580..810, y: 35..88)
+            val expBadgeLeft = bannerW * (580f / 1024f)
+            val expBadgeWidth = bannerW * (230f / 1024f)
+            val topBarY = bannerH * (35f / 576f)
+            val topBarHeight = bannerH * (53f / 576f)
+
+            if (!expiryDate.isNullOrBlank()) {
+                Box(
+                    modifier = Modifier
+                        .offset(x = expBadgeLeft, y = topBarY)
+                        .width(expBadgeWidth)
+                        .height(topBarHeight),
+                    contentAlignment = Alignment.Center
                 ) {
-                    // Relógio
-                    Surface(
-                        color = Color.White.copy(alpha = 0.05f),
-                        border = CardDefaults.outlinedCardBorder().copy(
-                            brush = Brush.linearGradient(listOf(Color.White.copy(alpha = 0.1f), Color.Transparent))
-                        ),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Schedule,
-                                contentDescription = null,
-                                tint = Color(0xFF00E5FF),
-                                modifier = Modifier.size(11.dp)
-                            )
-                            Spacer(modifier = Modifier.width(5.dp))
-                            Text(
-                                text = currentTime,
-                                color = Color.White,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-
-                    // Botão Discreto de Usuário
-                    var isUserBtnFocused by remember { mutableStateOf(false) }
-                    Surface(
-                        modifier = Modifier
-                            .focusable()
-                            .onFocusChanged { isUserBtnFocused = it.isFocused }
-                            .clickable { showUserModal = true }
-                            .border(
-                                width = if (isUserBtnFocused) 2.dp else 1.dp,
-                                color = if (isUserBtnFocused) Color(0xFF00E5FF) else Color.White.copy(alpha = 0.12f),
-                                shape = RoundedCornerShape(16.dp)
-                            ),
-                        color = if (isUserBtnFocused) Color(0xFF1B2436) else Color.White.copy(alpha = 0.06f),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        Brush.linearGradient(
-                                            listOf(Color(0xFFFF9100), Color(0xFF9C27B0), Color(0xFF00E5FF))
-                                        )
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = username.take(2).uppercase().ifBlank { "TV" },
-                                    color = Color.White,
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.ExtraBold
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Column {
-                                Text(
-                                    text = username.ifBlank { "Cliente" },
-                                    color = Color.White,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    text = "Rota $serverCode",
-                                    color = Color(0xFF00E5FF),
-                                    fontSize = 7.5.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Icon(
-                                imageVector = Icons.Default.KeyboardArrowDown,
-                                contentDescription = null,
-                                tint = Color(0xFF8B949E),
-                                modifier = Modifier.size(12.dp)
-                            )
-                        }
-                    }
-
-                    // Botão Discreto de Configurações
-                    var isSettingsFocused by remember { mutableStateOf(false) }
-                    Surface(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .focusable()
-                            .onFocusChanged { isSettingsFocused = it.isFocused }
-                            .clickable { onNavigateSettings() }
-                            .border(
-                                width = if (isSettingsFocused) 2.dp else 1.dp,
-                                color = if (isSettingsFocused) Color(0xFF00E5FF) else Color.White.copy(alpha = 0.12f),
-                                shape = CircleShape
-                            ),
-                        color = if (isSettingsFocused) Color(0xFF1B2436) else Color.White.copy(alpha = 0.06f),
-                        shape = CircleShape
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Default.Settings,
-                                contentDescription = "Configurações",
-                                tint = if (isSettingsFocused) Color(0xFF00E5FF) else Color(0xFFCCCCCC),
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
-            // ==========================================
-            // CENTRO: 3 HERO PORTAL CARDS (100% RESPONSIVOS, CABEM EM TV E CELULAR)
-            // ==========================================
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .padding(vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // CARD 1: CANAIS (TV AO VIVO) - Tema Ouro / Laranja Solar
-                HeroPortalCard(
-                    modifier = Modifier.weight(1f),
-                    title = "CANAIS",
-                    subtitle = "Esportes • Abertos • 4K UHD",
-                    badgeText = "AO VIVO",
-                    counterText = "+2.400 Canais",
-                    themeColor = Color(0xFFFFB800),
-                    secondaryColor = Color(0xFFFF8A00),
-                    cardIcon = Icons.Default.LiveTv,
-                    onClick = onNavigateLive
-                )
-
-                // CARD 2: FILMES (CINEMA VOD) - Tema Magenta / Roxo Elétrico
-                HeroPortalCard(
-                    modifier = Modifier.weight(1f),
-                    title = "FILMES",
-                    subtitle = "Lançamentos • Dublados • IMAX",
-                    badgeText = "CINEMA 4K",
-                    counterText = "+18.500 Filmes",
-                    themeColor = Color(0xFFE040FB),
-                    secondaryColor = Color(0xFF9D00FF),
-                    cardIcon = Icons.Default.Movie,
-                    onClick = onNavigateVod
-                )
-
-                // CARD 3: SÉRIES (MARATONAS) - Tema Ciano / Azul Futurista
-                HeroPortalCard(
-                    modifier = Modifier.weight(1f),
-                    title = "SÉRIES",
-                    subtitle = "Originais • Doramas • Animes",
-                    badgeText = "MARATONAS",
-                    counterText = "+4.200 Séries",
-                    themeColor = Color(0xFF00F0FF),
-                    secondaryColor = Color(0xFF0057FF),
-                    cardIcon = Icons.Default.VideoLibrary,
-                    onClick = onNavigateSeries
-                )
-            }
-
-            // ==========================================
-            // RODAPÉ: STATUS DA CONTA & DICAS DE NAVEGAÇÃO (COMPACTO)
-            // ==========================================
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(20.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF00E676))
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Status: Ativa • Expira em: ${expiryDate ?: "Indeterminado"}",
-                        color = Color(0xFF8B949E),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium
+                        text = "Validade:\n$expiryDate",
+                        color = Color(0xFF00FF88),
+                        fontSize = (bannerH.value * 0.022f).sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        textAlign = TextAlign.Center,
+                        lineHeight = (bannerH.value * 0.026f).sp
                     )
                 }
-
-                Text(
-                    text = "Navegue pelo controle remoto • [OK] Selecionar",
-                    color = Color(0xFF6E7681),
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Medium
-                )
             }
+
+            // Botão de Perfil do Usuário (x: 840..895)
+            val profileLeft = bannerW * (840f / 1024f)
+            val profileSize = bannerH * (53f / 576f)
+            Box(
+                modifier = Modifier
+                    .offset(x = profileLeft, y = topBarY)
+                    .size(profileSize)
+                    .clip(CircleShape)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { showUserModal = true }
+                    .focusable()
+                    .onFocusChanged { isProfileFocused = it.isFocused }
+                    .border(
+                        width = if (isProfileFocused) 3.dp else 1.dp,
+                        color = if (isProfileFocused) Color(0xFF00F0FF) else Color.Transparent,
+                        shape = CircleShape
+                    )
+                    .background(if (isProfileFocused) Color(0x3300F0FF) else Color.Transparent)
+            )
+
+            // Botão de Configurações (x: 915..970)
+            val settingsLeft = bannerW * (915f / 1024f)
+            Box(
+                modifier = Modifier
+                    .offset(x = settingsLeft, y = topBarY)
+                    .size(profileSize)
+                    .clip(CircleShape)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { onNavigateSettings() }
+                    .focusable()
+                    .onFocusChanged { isSettingsFocused = it.isFocused }
+                    .border(
+                        width = if (isSettingsFocused) 3.dp else 1.dp,
+                        color = if (isSettingsFocused) Color(0xFF00F0FF) else Color.Transparent,
+                        shape = CircleShape
+                    )
+                    .background(if (isSettingsFocused) Color(0x3300F0FF) else Color.Transparent)
+            )
+
+            // ==========================================
+            // 4. OS 3 CARDS HERO INTERATIVOS (CANAIS, FILMES, SÉRIES)
+            // ==========================================
+            val cardsY = bannerH * (210f / 576f)
+            val cardsHeight = bannerH * (285f / 576f)
+
+            // ------------------------------------------
+            // CARD 1: CANAIS (TV AO VIVO)
+            // ------------------------------------------
+            val card1Left = bannerW * (79f / 1024f)
+            val card1Width = bannerW * (280f / 1024f)
+            val liveScale by animateFloatAsState(
+                targetValue = if (isLiveFocused) 1.05f else 1.0f,
+                animationSpec = tween(150),
+                label = "liveScale"
+            )
+
+            Box(
+                modifier = Modifier
+                    .offset(x = card1Left, y = cardsY)
+                    .width(card1Width)
+                    .height(cardsHeight)
+                    .scale(liveScale)
+                    .clip(RoundedCornerShape(32.dp))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { onNavigateLive() }
+                    .focusable()
+                    .focusRequester(liveFocusRequester)
+                    .onFocusChanged { isLiveFocused = it.isFocused }
+                    .border(
+                        width = if (isLiveFocused) 3.5.dp else 1.dp,
+                        brush = if (isLiveFocused) Brush.horizontalGradient(
+                            listOf(Color(0xFFE040FB), Color(0xFF9D00FF), Color(0xFF00F0FF))
+                        ) else SolidColor(Color.Transparent),
+                        shape = RoundedCornerShape(32.dp)
+                    )
+                    .background(if (isLiveFocused) Color(0x229D00FF) else Color.Transparent)
+            )
+
+            // ------------------------------------------
+            // CARD 2: FILMES (CINEMA VOD)
+            // ------------------------------------------
+            val card2Left = bannerW * (363f / 1024f)
+            val card2Width = bannerW * (291f / 1024f)
+            val vodScale by animateFloatAsState(
+                targetValue = if (isVodFocused) 1.05f else 1.0f,
+                animationSpec = tween(150),
+                label = "vodScale"
+            )
+
+            Box(
+                modifier = Modifier
+                    .offset(x = card2Left, y = cardsY)
+                    .width(card2Width)
+                    .height(cardsHeight)
+                    .scale(vodScale)
+                    .clip(RoundedCornerShape(32.dp))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { onNavigateVod() }
+                    .focusable()
+                    .onFocusChanged { isVodFocused = it.isFocused }
+                    .border(
+                        width = if (isVodFocused) 3.5.dp else 1.dp,
+                        brush = if (isVodFocused) Brush.horizontalGradient(
+                            listOf(Color(0xFFFFD000), Color(0xFFFF8A00), Color(0xFFFF007A))
+                        ) else SolidColor(Color.Transparent),
+                        shape = RoundedCornerShape(32.dp)
+                    )
+                    .background(if (isVodFocused) Color(0x22FF8A00) else Color.Transparent)
+            )
+
+            // ------------------------------------------
+            // CARD 3: SÉRIES (MARATONAS)
+            // ------------------------------------------
+            val card3Left = bannerW * (653f / 1024f)
+            val card3Width = bannerW * (291f / 1024f)
+            val seriesScale by animateFloatAsState(
+                targetValue = if (isSeriesFocused) 1.05f else 1.0f,
+                animationSpec = tween(150),
+                label = "seriesScale"
+            )
+
+            Box(
+                modifier = Modifier
+                    .offset(x = card3Left, y = cardsY)
+                    .width(card3Width)
+                    .height(cardsHeight)
+                    .scale(seriesScale)
+                    .clip(RoundedCornerShape(32.dp))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { onNavigateSeries() }
+                    .focusable()
+                    .onFocusChanged { isSeriesFocused = it.isFocused }
+                    .border(
+                        width = if (isSeriesFocused) 3.5.dp else 1.dp,
+                        brush = if (isSeriesFocused) Brush.horizontalGradient(
+                            listOf(Color(0xFF00F0FF), Color(0xFF0057FF), Color(0xFF9D00FF))
+                        ) else SolidColor(Color.Transparent),
+                        shape = RoundedCornerShape(32.dp)
+                    )
+                    .background(if (isSeriesFocused) Color(0x2200F0FF) else Color.Transparent)
+            )
         }
 
         // ==========================================
-        // MODAL DE DETALHES DO USUÁRIO & LOGOFF
+        // 5. MODAL DE CONTA / LOGOFF / INFORMAÇÕES
         // ==========================================
         if (showUserModal) {
             Box(
@@ -397,25 +367,25 @@ fun HomeScreen(
                     modifier = Modifier
                         .width(380.dp)
                         .clickable(enabled = false) {},
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF111722)),
-                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF100E22)),
+                    shape = RoundedCornerShape(20.dp),
                     border = CardDefaults.outlinedCardBorder().copy(
                         brush = Brush.linearGradient(
-                            listOf(Color(0xFFFF9100), Color(0xFF9C27B0), Color(0xFF00E5FF))
+                            listOf(Color(0xFFFF8A00), Color(0xFF9D00FF), Color(0xFF00F0FF))
                         )
                     )
                 ) {
                     Column(
-                        modifier = Modifier.padding(20.dp),
+                        modifier = Modifier.padding(22.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(56.dp)
+                                .size(58.dp)
                                 .clip(CircleShape)
                                 .background(
                                     Brush.linearGradient(
-                                        listOf(Color(0xFFFF9100), Color(0xFF9C27B0), Color(0xFF00E5FF))
+                                        listOf(Color(0xFFFF8A00), Color(0xFF9D00FF), Color(0xFF00F0FF))
                                     )
                                 ),
                             contentAlignment = Alignment.Center
@@ -423,7 +393,7 @@ fun HomeScreen(
                             Text(
                                 text = username.take(2).uppercase().ifBlank { "TV" },
                                 color = Color.White,
-                                fontSize = 20.sp,
+                                fontSize = 22.sp,
                                 fontWeight = FontWeight.Black
                             )
                         }
@@ -431,45 +401,45 @@ fun HomeScreen(
                         Spacer(modifier = Modifier.height(10.dp))
 
                         Text(
-                            text = username,
+                            text = username.ifBlank { "Cliente DravTV" },
                             color = Color.White,
-                            fontSize = 16.sp,
+                            fontSize = 17.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Assinatura IPTV Premium",
-                            color = Color(0xFF00E5FF),
-                            fontSize = 11.sp,
+                            text = "Assinatura IPTV Premium Ativa",
+                            color = Color(0xFF00F0FF),
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold
                         )
 
                         Spacer(modifier = Modifier.height(14.dp))
 
                         Surface(
-                            color = Color(0xFF182234),
-                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0xFF16152F),
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
+                            Column(modifier = Modifier.padding(14.dp)) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Text("Rota de Servidor:", color = Color(0xFF8B949E), fontSize = 11.sp)
-                                    Text(serverCode, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text("Servidor / Rota:", color = Color(0xFF8B949E), fontSize = 12.sp)
+                                    Text(serverCode.ifBlank { "Padrão" }, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
-                                Spacer(modifier = Modifier.height(4.dp))
+                                Spacer(modifier = Modifier.height(6.dp))
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Text("Data de Expiração:", color = Color(0xFF8B949E), fontSize = 11.sp)
-                                    Text(expiryDate ?: "Ativa", color = Color(0xFF00E676), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text("Validade da Conta:", color = Color(0xFF8B949E), fontSize = 12.sp)
+                                    Text(expiryDate ?: "Ativa", color = Color(0xFF00FF88), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(18.dp))
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -482,192 +452,27 @@ fun HomeScreen(
                                 },
                                 modifier = Modifier.weight(1f),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
-                                shape = RoundedCornerShape(8.dp)
+                                shape = RoundedCornerShape(10.dp)
                             ) {
-                                Icon(Icons.Default.ExitToApp, contentDescription = null, modifier = Modifier.size(15.dp))
+                                Icon(Icons.Default.ExitToApp, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Trocar de Conta", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                Text("Sair / Trocar", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                             }
 
                             Button(
-                                onClick = { showUserModal = false },
+                                onClick = {
+                                    showUserModal = false
+                                    onNavigateSettings()
+                                },
                                 modifier = Modifier.weight(1f),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF263248)),
-                                shape = RoundedCornerShape(8.dp)
+                                shape = RoundedCornerShape(10.dp)
                             ) {
-                                Text("Fechar", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Ajustes", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                             }
                         }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun HeroPortalCard(
-    modifier: Modifier = Modifier,
-    title: String,
-    subtitle: String,
-    badgeText: String,
-    counterText: String,
-    themeColor: Color,
-    secondaryColor: Color,
-    cardIcon: ImageVector,
-    onClick: () -> Unit
-) {
-    var isFocused by remember { mutableStateOf(false) }
-
-    val scale by animateFloatAsState(
-        targetValue = if (isFocused) 1.04f else 1.0f,
-        animationSpec = tween(durationMillis = 200),
-        label = "heroCardScale"
-    )
-
-    Card(
-        modifier = modifier
-            .fillMaxHeight()
-            .scale(scale)
-            .focusable()
-            .onFocusChanged { isFocused = it.isFocused }
-            .shadow(
-                elevation = if (isFocused) 22.dp else 8.dp,
-                shape = RoundedCornerShape(18.dp),
-                spotColor = themeColor,
-                ambientColor = themeColor
-            )
-            .border(
-                width = if (isFocused) 3.dp else 1.dp,
-                brush = Brush.linearGradient(
-                    if (isFocused) listOf(themeColor, Color.White, themeColor)
-                    else listOf(themeColor.copy(alpha = 0.5f), Color.White.copy(alpha = 0.1f))
-                ),
-                shape = RoundedCornerShape(18.dp)
-            )
-            .clickable { onClick() },
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        if (isFocused) listOf(
-                            themeColor.copy(alpha = 0.28f),
-                            secondaryColor.copy(alpha = 0.35f),
-                            Color(0xFF0A0916)
-                        )
-                        else listOf(
-                            Color(0xFF16132C).copy(alpha = 0.88f),
-                            Color(0xFF0B0918).copy(alpha = 0.95f)
-                        )
-                    )
-                )
-                .padding(horizontal = 14.dp, vertical = 12.dp)
-        ) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                // Topo do Card: Badge + Contador
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(
-                        color = themeColor.copy(alpha = 0.2f),
-                        border = CardDefaults.outlinedCardBorder().copy(
-                            brush = Brush.linearGradient(listOf(themeColor, Color.White.copy(alpha = 0.4f)))
-                        ),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Text(
-                            text = badgeText,
-                            color = themeColor,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp)
-                        )
-                    }
-
-                    Text(
-                        text = counterText,
-                        color = Color(0xFFCCCCCC),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                // Centro: Arte do Ícone
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(72.dp)
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(
-                                Brush.linearGradient(
-                                    listOf(themeColor.copy(alpha = 0.2f), secondaryColor.copy(alpha = 0.15f))
-                                )
-                            )
-                            .border(1.dp, themeColor.copy(alpha = 0.4f), RoundedCornerShape(20.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = cardIcon,
-                            contentDescription = title,
-                            tint = if (isFocused) Color.White else themeColor,
-                            modifier = Modifier.size(42.dp)
-                        )
-                    }
-                }
-
-                // Base: Título + Subtítulo + Botão Play
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = title,
-                            color = if (isFocused) themeColor else Color.White,
-                            fontSize = 19.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 1.sp
-                        )
-                        Spacer(modifier = Modifier.height(1.dp))
-                        Text(
-                            text = subtitle,
-                            color = Color(0xFFAAAAAA),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .size(30.dp)
-                            .clip(CircleShape)
-                            .background(if (isFocused) themeColor else themeColor.copy(alpha = 0.25f))
-                            .border(1.dp, themeColor, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PlayArrow,
-                            contentDescription = "Acessar",
-                            tint = if (isFocused) Color.Black else Color.White,
-                            modifier = Modifier.size(17.dp)
-                        )
                     }
                 }
             }

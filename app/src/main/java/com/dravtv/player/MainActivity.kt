@@ -195,7 +195,7 @@ class MainActivity : ComponentActivity() {
 
                     is Screen.Login -> {
                         LoginScreen(
-                            initialServerCode = currentServerCode.ifBlank { lastSession.serverCode },
+                            initialServerCode = "",
                             initialUser = savedUser.ifBlank { lastSession.username },
                             initialPass = savedPass.ifBlank { lastSession.password },
                             onLoginSuccess = { serverCode, user, pass ->
