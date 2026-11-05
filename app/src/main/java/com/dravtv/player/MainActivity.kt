@@ -11,38 +11,88 @@ import android.webkit.*
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.webkit.WebViewAssetLoader
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.ByteArrayInputStream
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
 import java.util.concurrent.TimeUnit
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
+
+class XtreamBridge(private val client: OkHttpClient) {
+    @JavascriptInterface
+    fun fetchUrl(urlStr: String): String {
+        return try {
+            val req = Request.Builder()
+                .url(urlStr)
+                .header("User-Agent", "IPTVSmartersPro")
+                .header("Accept", "*/*")
+                .build()
+            client.newCall(req).execute().use { resp ->
+                resp.body?.string() ?: ""
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            ""
+        }
+    }
+
+    @JavascriptInterface
+    fun postUrl(urlStr: String, jsonBody: String, authToken: String): String {
+        return try {
+            val mediaType = "application/json; charset=utf-8".toMediaTypeOrNull()
+            val body = jsonBody.toRequestBody(mediaType)
+            val builder = Request.Builder()
+                .url(urlStr)
+                .post(body)
+                .header("User-Agent", "IPTVSmartersPro")
+                .header("Accept", "application/json")
+            if (authToken.isNotEmpty()) {
+                builder.header("Authorization", "Bearer $authToken")
+            }
+            client.newCall(builder.build()).execute().use { resp ->
+                resp.body?.string() ?: ""
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            ""
+        }
+    }
+}
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var webView: WebView
 
-    private val httpClient = OkHttpClient.Builder()
-        .connectTimeout(20, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .followRedirects(true)
-        .followSslRedirects(true)
-        .build()
-
-    inner class XtreamBridge {
-        @JavascriptInterface
-        fun fetchUrl(urlStr: String): String {
-            return try {
-                val req = Request.Builder()
-                    .url(urlStr)
-                    .header("User-Agent", "IPTVSmartersPro")
-                    .header("Accept", "*/*")
-                    .build()
-                httpClient.newCall(req).execute().use { resp ->
-                    resp.body?.string() ?: ""
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                ""
-            }
+    // OkHttpClient com suporte a HTTP/HTTPS, redirects e tolerante a certificados
+    private val httpClient: OkHttpClient by lazy {
+        try {
+            val trustAllCerts = arrayOf<TrustManager>(object : X509TrustManager {
+                override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+                override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+                override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
+            })
+            val sslContext = SSLContext.getInstance("SSL")
+            sslContext.init(null, trustAllCerts, SecureRandom())
+            OkHttpClient.Builder()
+                .sslSocketFactory(sslContext.socketFactory, trustAllCerts[0] as X509TrustManager)
+                .hostnameVerifier { _, _ -> true }
+                .connectTimeout(25, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)
+                .followRedirects(true)
+                .followSslRedirects(true)
+                .build()
+        } catch (e: Exception) {
+            OkHttpClient.Builder()
+                .connectTimeout(25, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)
+                .followRedirects(true)
+                .followSslRedirects(true)
+                .build()
         }
     }
 
@@ -80,8 +130,8 @@ class MainActivity : ComponentActivity() {
             userAgentString = "Mozilla/5.0 (Linux; Android 14; DravTV) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 IPTVSmartersPro"
         }
 
-        // Bridge nativo Android para o Xtream Codes (evita CORS, Mixed Content e bloqueio Cloudflare)
-        webView.addJavascriptInterface(XtreamBridge(), "AndroidBridge")
+        // Bridge nativo Android para Xtream Codes e Painel Revenda
+        webView.addJavascriptInterface(XtreamBridge(httpClient), "AndroidBridge")
 
         // Suporte a reprodução de vídeo em tela cheia e alertas
         webView.webChromeClient = object : WebChromeClient() {
@@ -97,8 +147,8 @@ class MainActivity : ComponentActivity() {
             ): WebResourceResponse? {
                 val url = request.url.toString()
 
-                // Intercept Xtream Codes API requests or proxy requests
-                if (url.contains("player_api.php") || url.contains("/api/xtream/")) {
+                // Intercepta chamadas da API do Xtream Codes ou do Painel Pixbot
+                if (url.contains("player_api.php") || url.contains("revenda.pixbot.link") || url.contains("/api/xtream/")) {
                     try {
                         val targetUrl = if (url.contains("targetUrl=")) {
                             java.net.URLDecoder.decode(url.substringAfter("targetUrl="), "UTF-8")
@@ -117,8 +167,8 @@ class MainActivity : ComponentActivity() {
                         return WebResourceResponse(
                             mime.trim(),
                             "UTF-8",
-                            okResp.code,
-                            okResp.message.ifEmpty { "OK" },
+                            200,
+                            "OK",
                             mapOf(
                                 "Access-Control-Allow-Origin" to "*",
                                 "Access-Control-Allow-Methods" to "GET, POST, OPTIONS",
