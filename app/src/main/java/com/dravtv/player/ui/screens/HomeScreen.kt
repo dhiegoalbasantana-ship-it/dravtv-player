@@ -60,18 +60,25 @@ fun HomeScreen(
 ) {
     var showProfileModal by remember { mutableStateOf(false) }
 
-    // Avatar selecionado do WatchHub (padrão: Astronauta)
+    // 15 Avatares oficiais DravTV
     val avatarList = listOf(
-        R.drawable.avatar_astronauta to "Astronauta",
-        R.drawable.avatar_cyborg to "Cyborg",
-        R.drawable.avatar_kid to "Kid",
-        R.drawable.avatar_maga to "Maga",
-        R.drawable.avatar_soldado to "Soldado",
-        R.drawable.avatar_ursinho to "Ursinho",
-        R.drawable.avatar_violinista to "Violinista",
-        R.drawable.avatar_woman to "Mulher"
+        R.drawable.avatar_omniman to "Omni-Man",
+        R.drawable.avatar_rhaenyra to "Rhaenyra Targaryen",
+        R.drawable.avatar_mickey to "Mickey Mouse",
+        R.drawable.avatar_daenerys to "Daenerys Targaryen",
+        R.drawable.avatar_gumball to "Gumball",
+        R.drawable.avatar_bojack to "BoJack Horseman",
+        R.drawable.avatar_batman to "Batman",
+        R.drawable.avatar_stitch to "Stitch",
+        R.drawable.avatar_spiderman to "Homem-Aranha",
+        R.drawable.avatar_gojo to "Satoru Gojo",
+        R.drawable.avatar_luffy to "Luffy Gear 5",
+        R.drawable.avatar_wednesday to "Wandinha Addams",
+        R.drawable.avatar_grogu to "Baby Yoda (Grogu)",
+        R.drawable.avatar_bossbaby to "Poderoso Chefinho",
+        R.drawable.avatar_eleven to "Eleven (Onze)"
     )
-    var selectedAvatarRes by remember { mutableStateOf(R.drawable.avatar_astronauta) }
+    var selectedAvatarRes by remember { mutableStateOf(R.drawable.avatar_omniman) }
 
     // Estados de Foco para Controle Remoto Android TV
     var isHeroFocused by remember { mutableStateOf(false) }
@@ -505,14 +512,14 @@ fun HomeScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Grid dos 8 Avatares oficiais do WatchHub
+                        // Grid dos 15 Avatares oficiais do DravTV
                         LazyVerticalGrid(
-                            columns = GridCells.Fixed(4),
+                            columns = GridCells.Fixed(5),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(160.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                                .height(220.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             items(avatarList) { (resId, name) ->
                                 val isSelected = selectedAvatarRes == resId
