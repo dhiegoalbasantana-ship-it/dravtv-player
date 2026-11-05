@@ -57,20 +57,36 @@ object XtreamRepository {
             level = HttpLoggingInterceptor.Level.BASIC
         }
 
-        // Interceptor obrigatório para evitar erro 403 Forbidden
+        val trustAllCerts = arrayOf<javax.net.ssl.TrustManager>(object : javax.net.ssl.X509TrustManager {
+            override fun checkClientTrusted(chain: Array<out java.security.cert.X509Certificate>?, authType: String?) {}
+            override fun checkServerTrusted(chain: Array<out java.security.cert.X509Certificate>?, authType: String?) {}
+            override fun getAcceptedIssuers(): Array<java.security.cert.X509Certificate> = arrayOf()
+        })
+
+        val sslContext = javax.net.ssl.SSLContext.getInstance("SSL").apply {
+            init(null, trustAllCerts, java.security.SecureRandom())
+        }
+
+        // Interceptor obrigatório IPTVSmartersPro para evitar erro 403 Forbidden
         val userAgentInterceptor = Interceptor { chain ->
             val request = chain.request().newBuilder()
-                .header("User-Agent", "okhttp/4.12.0")
+                .header("User-Agent", "IPTVSmartersPro")
                 .header("Accept", "*/*")
+                .header("Connection", "Keep-Alive")
                 .build()
             chain.proceed(request)
         }
 
         val client = OkHttpClient.Builder()
+            .sslSocketFactory(sslContext.socketFactory, trustAllCerts[0] as javax.net.ssl.X509TrustManager)
+            .hostnameVerifier { _, _ -> true }
             .addInterceptor(userAgentInterceptor)
             .addInterceptor(logging)
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(20, TimeUnit.SECONDS)
+            .followRedirects(true)
+            .followSslRedirects(true)
+            .retryOnConnectionFailure(true)
+            .connectTimeout(25, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
             .build()
 
         val retrofit = Retrofit.Builder()
@@ -86,16 +102,19 @@ object XtreamRepository {
 
     fun buildLiveStreamUrl(hostOrCode: String, user: String, pass: String, streamId: Int, ext: String = "ts"): String {
         val host = resolveServerUrl(hostOrCode).trimEnd('/')
-        return "$host/live/$user/$pass/$streamId.$ext"
+        val cleanExt = ext.trim().removePrefix(".")
+        return "$host/live/$user/$pass/$streamId.$cleanExt"
     }
 
-    fun buildVodStreamUrl(hostOrCode: String, user: String, pass: String, streamId: Int, ext: String = "mp4"): String {
+    fun buildVodStreamUrl(hostOrCode: String, user: String, pass: String, streamId: Int, ext: String = "mkv"): String {
         val host = resolveServerUrl(hostOrCode).trimEnd('/')
-        return "$host/movie/$user/$pass/$streamId.$ext"
+        val cleanExt = ext.trim().removePrefix(".")
+        return "$host/movie/$user/$pass/$streamId.$cleanExt"
     }
 
-    fun buildSeriesStreamUrl(hostOrCode: String, user: String, pass: String, streamId: Int, ext: String = "mp4"): String {
+    fun buildSeriesStreamUrl(hostOrCode: String, user: String, pass: String, streamId: Int, ext: String = "mkv"): String {
         val host = resolveServerUrl(hostOrCode).trimEnd('/')
-        return "$host/series/$user/$pass/$streamId.$ext"
+        val cleanExt = ext.trim().removePrefix(".")
+        return "$host/series/$user/$pass/$streamId.$cleanExt"
     }
 }

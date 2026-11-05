@@ -387,7 +387,7 @@ class MainActivity : ComponentActivity() {
                                     user = savedUser,
                                     pass = savedPass,
                                     streamId = movie.streamId,
-                                    ext = movie.containerExtension ?: "mp4"
+                                    ext = movie.containerExtension ?: "mkv"
                                 )
                                 currentScreen = Screen.Player(
                                     url = streamUrl,
@@ -483,7 +483,7 @@ class MainActivity : ComponentActivity() {
                                     user = savedUser,
                                     pass = savedPass,
                                     streamId = ep.id.toIntOrNull() ?: 0,
-                                    ext = ep.containerExtension ?: "mp4"
+                                    ext = ep.containerExtension ?: "mkv"
                                 )
                                 val sId = selectedSeriesDetail?.seriesId ?: 0
                                 val sNum = ep.season ?: 1

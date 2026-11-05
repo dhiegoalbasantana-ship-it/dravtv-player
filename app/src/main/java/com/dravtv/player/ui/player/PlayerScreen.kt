@@ -33,7 +33,9 @@ import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
 import androidx.media3.ui.SubtitleView
@@ -68,7 +70,18 @@ fun PlayerScreen(
     var showSubtitleDialog by remember { mutableStateOf(false) }
 
     val exoPlayer = remember {
-        ExoPlayer.Builder(context).build().apply {
+        val httpDataSourceFactory = DefaultHttpDataSource.Factory()
+            .setUserAgent("IPTVSmartersPro")
+            .setAllowCrossProtocolRedirects(true)
+            .setKeepPostFor302Redirects(true)
+            .setConnectTimeoutMs(25000)
+            .setReadTimeoutMs(25000)
+
+        val mediaSourceFactory = DefaultMediaSourceFactory(httpDataSourceFactory)
+
+        ExoPlayer.Builder(context)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .build().apply {
             val mediaItem = MediaItem.fromUri(streamUrl)
             setMediaItem(mediaItem)
             prepare()
