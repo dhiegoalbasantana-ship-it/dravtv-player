@@ -11,44 +11,40 @@ import android.webkit.*
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.webkit.WebViewAssetLoader
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.net.HttpURLConnection
-import java.net.URL
-
-class XtreamBridge(private val context: Context) {
-    @JavascriptInterface
-    fun fetchUrl(urlStr: String): String {
-        return try {
-            val url = URL(urlStr)
-            val conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "GET"
-            conn.connectTimeout = 15000
-            conn.readTimeout = 40000
-            conn.setRequestProperty("User-Agent", "IPTVSmartersPro")
-            conn.setRequestProperty("Accept", "*/*")
-            conn.doInput = true
-            val responseCode = conn.responseCode
-            val inputStream = if (responseCode in 200..299) conn.inputStream else conn.errorStream
-            val reader = BufferedReader(InputStreamReader(inputStream ?: return ""))
-            val sb = StringBuilder()
-            var line: String?
-            while (reader.readLine().also { line = it } != null) {
-                sb.append(line)
-            }
-            reader.close()
-            conn.disconnect()
-            sb.toString()
-        } catch (e: Exception) {
-            e.printStackTrace()
-            ""
-        }
-    }
-}
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.io.ByteArrayInputStream
+import java.util.concurrent.TimeUnit
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var webView: WebView
+
+    private val httpClient = OkHttpClient.Builder()
+        .connectTimeout(20, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .followRedirects(true)
+        .followSslRedirects(true)
+        .build()
+
+    inner class XtreamBridge {
+        @JavascriptInterface
+        fun fetchUrl(urlStr: String): String {
+            return try {
+                val req = Request.Builder()
+                    .url(urlStr)
+                    .header("User-Agent", "IPTVSmartersPro")
+                    .header("Accept", "*/*")
+                    .build()
+                httpClient.newCall(req).execute().use { resp ->
+                    resp.body?.string() ?: ""
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                ""
+            }
+        }
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -85,7 +81,7 @@ class MainActivity : ComponentActivity() {
         }
 
         // Bridge nativo Android para o Xtream Codes (evita CORS, Mixed Content e bloqueio Cloudflare)
-        webView.addJavascriptInterface(XtreamBridge(this), "AndroidBridge")
+        webView.addJavascriptInterface(XtreamBridge(), "AndroidBridge")
 
         // Suporte a reprodução de vídeo em tela cheia e alertas
         webView.webChromeClient = object : WebChromeClient() {
@@ -99,6 +95,42 @@ class MainActivity : ComponentActivity() {
                 view: WebView,
                 request: WebResourceRequest
             ): WebResourceResponse? {
+                val url = request.url.toString()
+
+                // Intercept Xtream Codes API requests or proxy requests
+                if (url.contains("player_api.php") || url.contains("/api/xtream/")) {
+                    try {
+                        val targetUrl = if (url.contains("targetUrl=")) {
+                            java.net.URLDecoder.decode(url.substringAfter("targetUrl="), "UTF-8")
+                        } else {
+                            url
+                        }
+                        val okReq = Request.Builder()
+                            .url(targetUrl)
+                            .header("User-Agent", "IPTVSmartersPro")
+                            .header("Accept", "*/*")
+                            .build()
+                        val okResp = httpClient.newCall(okReq).execute()
+                        val bodyBytes = okResp.body?.bytes() ?: ByteArray(0)
+                        val contentType = okResp.header("Content-Type", "application/json") ?: "application/json"
+                        val mime = if (contentType.contains(";")) contentType.substringBefore(";") else contentType
+                        return WebResourceResponse(
+                            mime.trim(),
+                            "UTF-8",
+                            okResp.code,
+                            okResp.message.ifEmpty { "OK" },
+                            mapOf(
+                                "Access-Control-Allow-Origin" to "*",
+                                "Access-Control-Allow-Methods" to "GET, POST, OPTIONS",
+                                "Access-Control-Allow-Headers" to "*"
+                            ),
+                            ByteArrayInputStream(bodyBytes)
+                        )
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+
                 val path = request.url.path ?: ""
                 if (path.contains("/aistudio/")) {
                     val fileName = request.url.lastPathSegment ?: ""
