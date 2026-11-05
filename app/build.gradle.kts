@@ -12,8 +12,8 @@ android {
         applicationId = "com.dravtv.player"
         minSdk = 24
         targetSdk = 35
-        versionCode = 16
-        versionName = "2.1.0"
+        versionCode = 17
+        versionName = "2.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
