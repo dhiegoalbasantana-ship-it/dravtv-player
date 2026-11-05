@@ -23,7 +23,19 @@ import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 
-class XtreamBridge(private val client: OkHttpClient) {
+class XtreamBridge(private val context: Context, private val client: OkHttpClient) {
+    private val prefs = context.getSharedPreferences("dravtv_session_pref", Context.MODE_PRIVATE)
+
+    @JavascriptInterface
+    fun savePreference(key: String, value: String) {
+        prefs.edit().putString(key, value).apply()
+    }
+
+    @JavascriptInterface
+    fun getPreference(key: String, defaultValue: String): String {
+        return prefs.getString(key, defaultValue) ?: defaultValue
+    }
+
     @JavascriptInterface
     fun fetchUrl(urlStr: String): String {
         return try {
@@ -131,7 +143,7 @@ class MainActivity : ComponentActivity() {
         }
 
         // Bridge nativo Android para Xtream Codes e Painel Revenda
-        webView.addJavascriptInterface(XtreamBridge(httpClient), "AndroidBridge")
+        webView.addJavascriptInterface(XtreamBridge(this, httpClient), "AndroidBridge")
 
         // Suporte a reprodução de vídeo em tela cheia e alertas
         webView.webChromeClient = object : WebChromeClient() {
