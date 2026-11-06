@@ -45,12 +45,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dravtv.player.R
 
+import kotlinx.coroutines.launch
+
 @Composable
 fun LoginScreen(
     initialServerCode: String = "",
     initialUser: String = "",
     initialPass: String = "",
-    onLoginSuccess: (serverCode: String, user: String, pass: String) -> Unit
+    onLogin: suspend (serverCode: String, user: String, pass: String) -> String?
 ) {
     // Conforme instrução expressa do usuário:
     // "o codigo deixa em branco e quando a pessoa clicar ela digita o codigo que ela quer sem aparecer nenhum codigo"
@@ -60,6 +62,7 @@ fun LoginScreen(
     var isPasswordVisible by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    val coroutineScope = rememberCoroutineScope()
 
     val focusManager = LocalFocusManager.current
     val userFocusRequester = remember { FocusRequester() }
@@ -86,7 +89,13 @@ fun LoginScreen(
         }
         errorMessage = null
         isLoading = true
-        onLoginSuccess(serverCode.trim(), user.trim(), pass.trim())
+        coroutineScope.launch {
+            val err = onLogin(serverCode.trim(), user.trim(), pass.trim())
+            if (err != null) {
+                errorMessage = err
+                isLoading = false
+            }
+        }
     }
 
     BoxWithConstraints(

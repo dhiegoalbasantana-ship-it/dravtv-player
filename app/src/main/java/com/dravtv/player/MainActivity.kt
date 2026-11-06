@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
+import com.dravtv.player.data.api.SupabaseAuthRepository
 import com.dravtv.player.data.api.XtreamRepository
 import com.dravtv.player.data.model.*
 import com.dravtv.player.ui.player.PlayerScreen
@@ -27,6 +28,8 @@ import com.dravtv.player.util.SessionManager
 import com.dravtv.player.util.WatchProgressManager
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -105,6 +108,20 @@ class MainActivity : ComponentActivity() {
                 var currentEpisodes by remember { mutableStateOf<List<EpisodeItem>>(emptyList()) }
                 var isLoadingSeries by remember { mutableStateOf(false) }
                 var isLoadingEpisodes by remember { mutableStateOf(false) }
+
+                // Ping de Sessão Silencioso a cada 60s (WatchHub Session Control)
+                LaunchedEffect(savedUser) {
+                    if (savedUser.isNotBlank()) {
+                        while (true) {
+                            delay(60000L)
+                            try {
+                                SupabaseAuthRepository.pingSession(savedUser)
+                            } catch (e: Exception) {
+                                // Silent background ping
+                            }
+                        }
+                    }
+                }
 
                 when (val screen = currentScreen) {
                     is Screen.Splash -> {
@@ -198,46 +215,64 @@ class MainActivity : ComponentActivity() {
                             initialServerCode = "",
                             initialUser = savedUser.ifBlank { lastSession.username },
                             initialPass = savedPass.ifBlank { lastSession.password },
-                            onLoginSuccess = { serverCode, user, pass ->
-                                currentServerCode = serverCode
-                                savedUser = user
-                                savedPass = pass
-
-                                lifecycleScope.launch {
-                                    try {
-                                        val api = XtreamRepository.getApi(serverCode)
-                                        val authRes = api.login(user, pass)
-                                        if (authRes.isSuccessful && authRes.body()?.userInfo?.auth == 1) {
-                                            val rawExp = authRes.body()?.userInfo?.expDate
-                                            expiryDateFormatted = rawExp?.toLongOrNull()?.let { timestamp ->
-                                                val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-                                                sdf.format(Date(timestamp * 1000L))
-                                            }
-
-                                            // Salva a sessão para entrar automaticamente nas próximas vezes
-                                            SessionManager.saveSession(
-                                                this@MainActivity,
-                                                serverCode,
-                                                user,
-                                                pass,
-                                                expiryDateFormatted
-                                            )
-
-                                            // Carrega categorias de canais
-                                            val catRes = api.getLiveCategories(user, pass)
-                                            if (catRes.isSuccessful) {
-                                                rawLiveCategories = catRes.body() ?: emptyList()
-                                                val filtered = filterCategories(rawLiveCategories)
-                                                if (filtered.isNotEmpty()) {
-                                                    selectedLiveCategoryId = filtered.first().categoryId
-                                                }
-                                            }
-
-                                            currentScreen = Screen.Home
-                                        }
-                                    } catch (e: Exception) {
-                                        e.printStackTrace()
+                            onLogin = { serverCode, user, pass ->
+                                try {
+                                    // ETAPA 1: Resolução de Código via Nuvem Supabase Oficial
+                                    val validation = SupabaseAuthRepository.validateCode(serverCode, user, pass)
+                                    val resolvedServerUrl = when (validation) {
+                                        is SupabaseAuthRepository.CodeValidationResult.Success -> validation.serverUrl
+                                        is SupabaseAuthRepository.CodeValidationResult.Error -> return@LoginScreen validation.message
                                     }
+
+                                    // ETAPA 2: Handshake direto com o servidor Xtream Codes via player_api.php
+                                    val api = XtreamRepository.getApi(resolvedServerUrl)
+                                    val authRes = api.login(user, pass)
+
+                                    if (authRes.isSuccessful && authRes.body()?.userInfo?.auth == 1) {
+                                        currentServerCode = resolvedServerUrl
+                                        savedUser = user
+                                        savedPass = pass
+
+                                        val rawExp = authRes.body()?.userInfo?.expDate
+                                        expiryDateFormatted = rawExp?.toLongOrNull()?.let { timestamp ->
+                                            val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+                                            sdf.format(Date(timestamp * 1000L))
+                                        }
+
+                                        // Salva a sessão para entrar automaticamente nas próximas vezes
+                                        SessionManager.saveSession(
+                                            this@MainActivity,
+                                            resolvedServerUrl,
+                                            user,
+                                            pass,
+                                            expiryDateFormatted
+                                        )
+
+                                        // Confirmação de login no Supabase em background
+                                        if (validation is SupabaseAuthRepository.CodeValidationResult.Success) {
+                                            lifecycleScope.launch(Dispatchers.IO) {
+                                                SupabaseAuthRepository.commitLogin(validation.probeToken, pass)
+                                            }
+                                        }
+
+                                        // Carrega categorias de canais
+                                        val catRes = api.getLiveCategories(user, pass)
+                                        if (catRes.isSuccessful) {
+                                            rawLiveCategories = catRes.body() ?: emptyList()
+                                            val filtered = filterCategories(rawLiveCategories)
+                                            if (filtered.isNotEmpty()) {
+                                                selectedLiveCategoryId = filtered.first().categoryId
+                                            }
+                                        }
+
+                                        currentScreen = Screen.Home
+                                        null
+                                    } else {
+                                        "Usuário ou senha incorretos."
+                                    }
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                    "Falha ao conectar ao servidor. Verifique os dados e a internet."
                                 }
                             }
                         )
