@@ -180,7 +180,27 @@ class MainActivity : ComponentActivity() {
             ): WebResourceResponse? {
                 val url = request.url.toString()
 
-                // 1. Intercepta chamadas de API do Xtream Codes / Servidor gm08.top
+                // 1. Arquivos estáticos locais do Studio via WebViewAssetLoader
+                if (url.contains("appassets.androidplatform.net")) {
+                    val path = request.url.path ?: ""
+                    if (path.contains("/aistudio/")) {
+                        val fileName = request.url.lastPathSegment ?: ""
+                        try {
+                            val stream = assets.open("web/assets/aistudio/$fileName")
+                            return WebResourceResponse("image/png", "UTF-8", stream)
+                        } catch (_: Exception) {}
+                    }
+                    if (path.endsWith("logo_dravtv.png")) {
+                        try {
+                            val stream = assets.open("web/assets/logo_dravtv.png")
+                            return WebResourceResponse("image/png", "UTF-8", stream)
+                        } catch (_: Exception) {}
+                    }
+                    val intercepted = assetLoader.shouldInterceptRequest(request.url)
+                    if (intercepted != null) return intercepted
+                }
+
+                // 2. Intercepta chamadas de API do Xtream Codes / Servidor gm08.top
                 if (url.contains("player_api.php") || url.contains("revenda.pixbot.link") || url.contains("/api/xtream/")) {
                     try {
                         val targetUrl = if (url.contains("targetUrl=")) {
@@ -215,7 +235,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                // 2. Intercepta Capas e Imagens externas (pn96.eu, tmdb, logos) para liberação instantânea sem Erro 403
+                // 3. Intercepta Capas e Imagens externas (pn96.eu, tmdb, logos) para liberação instantânea sem Erro 403
                 val isImage = url.contains("pn96.eu") ||
                               url.contains("tmdb.org") ||
                               url.contains("/logo/") ||
@@ -259,24 +279,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                // 3. Imagens e arquivos estáticos locais do AI Studio
-                val path = request.url.path ?: ""
-                if (path.contains("/aistudio/")) {
-                    val fileName = request.url.lastPathSegment ?: ""
-                    try {
-                        val stream = assets.open("web/assets/aistudio/$fileName")
-                        return WebResourceResponse("image/png", "UTF-8", stream)
-                    } catch (_: Exception) {}
-                }
-                if (path.endsWith("logo_dravtv.png")) {
-                    try {
-                        val stream = assets.open("web/assets/logo_dravtv.png")
-                        return WebResourceResponse("image/png", "UTF-8", stream)
-                    } catch (_: Exception) {}
-                }
-
-                val intercepted = assetLoader.shouldInterceptRequest(request.url)
-                return intercepted ?: super.shouldInterceptRequest(view, request)
+                return super.shouldInterceptRequest(view, request)
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
@@ -285,8 +288,8 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Carrega o app oficial do Google AI Studio embutido (suportando HTTP puro sem bloqueio de mixed content)
-        webView.loadUrl("http://appassets.androidplatform.net/assets/web/index.html")
+        // Carrega o app oficial do Google AI Studio embutido
+        webView.loadUrl("https://appassets.androidplatform.net/assets/web/index.html")
 
         // Ping silencioso periódico a cada 60s (WatchHub Session Control)
         lifecycleScope.launch(Dispatchers.IO) {
