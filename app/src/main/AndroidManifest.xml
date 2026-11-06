@@ -43,6 +43,7 @@
             android:name=".PlayerActivity"
             android:exported="false"
             android:screenOrientation="sensorLandscape"
+            android:launchMode="singleTask"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
             android:theme="@style/Theme.DravTV" />
     </application>

@@ -36,6 +36,7 @@ import javax.net.ssl.X509TrustManager
 class XtreamBridge(private val context: Context, private val client: OkHttpClient) {
     private val prefs = context.getSharedPreferences("dravtv_session_pref", Context.MODE_PRIVATE)
     private val mainHandler = Handler(Looper.getMainLooper())
+    private var lastPlayTime = 0L
 
     @JavascriptInterface
     fun savePreference(key: String, value: String) {
@@ -90,7 +91,13 @@ class XtreamBridge(private val context: Context, private val client: OkHttpClien
 
     @JavascriptInterface
     fun playMedia(urlStr: String, title: String, type: String) {
-        if (urlStr.isBlank()) return
+        val now = System.currentTimeMillis()
+        if (now - lastPlayTime < 2500L) {
+            // Ignora múltiplos cliques rápidos ou duplo clique para não abrir múltiplas telas
+            return
+        }
+        lastPlayTime = now
+        if (urlStr.isBlank() || PlayerActivity.isPlayerRunning) return
         mainHandler.post {
             PlayerActivity.start(context, urlStr, title)
         }
@@ -155,6 +162,7 @@ class MainActivity : ComponentActivity() {
             useWideViewPort = true
             cacheMode = WebSettings.LOAD_DEFAULT
             userAgentString = "IPTVSmartersPro"
+            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         }
 
         webView.addJavascriptInterface(XtreamBridge(this, httpClient), "AndroidBridge")
@@ -207,31 +215,41 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                // 2. Intercepta Capas e Imagens externas (pn96.eu, tmdb, etc) com User-Agent oficial para evitar Erro 403
-                if (url.contains("pn96.eu") || url.contains("tmdb.org") ||
-                    (url.startsWith("http") && !url.contains("appassets.androidplatform.net") &&
-                     (url.endsWith(".jpg") || url.endsWith(".jpeg") || url.endsWith(".png") || url.endsWith(".webp") || url.contains("/logo/")))
-                ) {
+                // 2. Intercepta Capas e Imagens externas (pn96.eu, tmdb, logos) para liberação instantânea sem Erro 403
+                val isImage = url.contains("pn96.eu") ||
+                              url.contains("tmdb.org") ||
+                              url.contains("/logo/") ||
+                              url.contains(".jpg") ||
+                              url.contains(".jpeg") ||
+                              url.contains(".png") ||
+                              url.contains(".webp")
+
+                if (isImage && !url.contains("appassets.androidplatform.net")) {
                     try {
+                        val targetUrl = if (url.contains("/original/") && url.contains("tmdb.org")) {
+                            url.replace("/original/", "/w500/")
+                        } else {
+                            url
+                        }
                         val okReq = Request.Builder()
-                            .url(url)
+                            .url(targetUrl)
                             .header("User-Agent", "IPTVSmartersPro")
-                            .header("Accept", "*/*")
+                            .header("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
                             .header("Referer", "http://gm08.top/")
                             .build()
                         val okResp = httpClient.newCall(okReq).execute()
-                        if (okResp.isSuccessful) {
-                            val bodyBytes = okResp.body?.bytes() ?: ByteArray(0)
-                            val contentType = okResp.header("Content-Type", "image/jpeg") ?: "image/jpeg"
-                            val mime = if (contentType.contains(";")) contentType.substringBefore(";") else contentType
+                        if (okResp.isSuccessful && okResp.body != null) {
+                            val bodyBytes = okResp.body!!.bytes()
+                            val contentType = okResp.header("Content-Type") ?: "image/jpeg"
+                            val mime = if (contentType.contains(";")) contentType.substringBefore(";").trim() else contentType.trim()
                             return WebResourceResponse(
-                                mime.trim(),
+                                mime,
                                 null,
                                 200,
                                 "OK",
                                 mapOf(
                                     "Access-Control-Allow-Origin" to "*",
-                                    "Cache-Control" to "max-age=86400"
+                                    "Cache-Control" to "public, max-age=86400"
                                 ),
                                 ByteArrayInputStream(bodyBytes)
                             )
@@ -267,8 +285,8 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Carrega o app oficial do Google AI Studio embutido
-        webView.loadUrl("https://appassets.androidplatform.net/assets/web/index.html")
+        // Carrega o app oficial do Google AI Studio embutido (suportando HTTP puro sem bloqueio de mixed content)
+        webView.loadUrl("http://appassets.androidplatform.net/assets/web/index.html")
 
         // Ping silencioso periódico a cada 60s (WatchHub Session Control)
         lifecycleScope.launch(Dispatchers.IO) {
