@@ -1,606 +1,343 @@
 package com.dravtv.player
 
+import android.annotation.SuppressLint
+import android.content.Context
+import android.content.pm.ActivityInfo
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.view.KeyEvent
+import android.view.View
+import android.view.WindowManager
+import android.webkit.*
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Text
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.activity.OnBackPressedCallback
 import androidx.lifecycle.lifecycleScope
-import com.dravtv.player.data.api.SupabaseAuthRepository
-import com.dravtv.player.data.api.XtreamRepository
-import com.dravtv.player.data.model.*
-import com.dravtv.player.ui.player.PlayerScreen
-import com.dravtv.player.ui.screens.*
-import com.dravtv.player.ui.theme.DravTVTheme
-import com.dravtv.player.util.SessionManager
-import com.dravtv.player.util.WatchProgressManager
-import com.google.gson.JsonElement
-import com.google.gson.JsonObject
+import androidx.webkit.WebViewAssetLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.*
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
+import java.io.ByteArrayInputStream
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
+import java.util.concurrent.TimeUnit
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
 
-sealed class Screen {
-    object Splash : Screen()
-    object Login : Screen()
-    object Home : Screen()
-    object LiveTv : Screen()
-    object Vod : Screen()
-    object Series : Screen()
-    object Settings : Screen()
-    data class Player(
-        val url: String,
-        val title: String,
-        val previousScreen: Screen,
-        val startPositionMs: Long = 0L,
-        val onSaveProgress: ((positionMs: Long, durationMs: Long) -> Unit)? = null
-    ) : Screen()
+/**
+ * Ponte JavaScript nativa entre a interface Google AI Studio e o hardware do Android.
+ */
+class XtreamBridge(private val context: Context, private val client: OkHttpClient) {
+    private val prefs = context.getSharedPreferences("dravtv_session_pref", Context.MODE_PRIVATE)
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    @JavascriptInterface
+    fun savePreference(key: String, value: String) {
+        prefs.edit().putString(key, value).apply()
+    }
+
+    @JavascriptInterface
+    fun getPreference(key: String, defaultValue: String): String {
+        return prefs.getString(key, defaultValue) ?: defaultValue
+    }
+
+    @JavascriptInterface
+    fun fetchUrl(urlStr: String): String {
+        return try {
+            val req = Request.Builder()
+                .url(urlStr)
+                .header("User-Agent", "IPTVSmartersPro")
+                .header("Accept", "*/*")
+                .header("Connection", "Keep-Alive")
+                .build()
+            client.newCall(req).execute().use { resp ->
+                resp.body?.string() ?: ""
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            ""
+        }
+    }
+
+    @JavascriptInterface
+    fun postUrl(urlStr: String, jsonBody: String, authToken: String): String {
+        return try {
+            val mediaType = "application/json; charset=utf-8".toMediaTypeOrNull()
+            val body = jsonBody.toRequestBody(mediaType)
+            val builder = Request.Builder()
+                .url(urlStr)
+                .post(body)
+                .header("User-Agent", "IPTVSmartersPro")
+                .header("Accept", "application/json")
+                .header("Connection", "Keep-Alive")
+            if (authToken.isNotEmpty()) {
+                builder.header("Authorization", "Bearer $authToken")
+            }
+            client.newCall(builder.build()).execute().use { resp ->
+                resp.body?.string() ?: ""
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            ""
+        }
+    }
+
+    @JavascriptInterface
+    fun playMedia(urlStr: String, title: String, type: String) {
+        if (urlStr.isBlank()) return
+        mainHandler.post {
+            PlayerActivity.start(context, urlStr, title)
+        }
+    }
 }
 
 class MainActivity : ComponentActivity() {
 
+    private lateinit var webView: WebView
+
+    private val httpClient: OkHttpClient by lazy {
+        try {
+            val trustAllCerts = arrayOf<TrustManager>(object : X509TrustManager {
+                override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+                override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+                override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
+            })
+            val sslContext = SSLContext.getInstance("SSL")
+            sslContext.init(null, trustAllCerts, SecureRandom())
+            OkHttpClient.Builder()
+                .sslSocketFactory(sslContext.socketFactory, trustAllCerts[0] as X509TrustManager)
+                .hostnameVerifier { _, _ -> true }
+                .connectTimeout(25, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)
+                .followRedirects(true)
+                .followSslRedirects(true)
+                .build()
+        } catch (e: Exception) {
+            OkHttpClient.Builder()
+                .connectTimeout(25, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)
+                .followRedirects(true)
+                .followSslRedirects(true)
+                .build()
+        }
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        setContent {
-            DravTVTheme {
-                val lastSession = remember { SessionManager.getLastLogin(this@MainActivity) }
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        hideSystemUI()
 
-                var currentScreen by remember {
-                    mutableStateOf<Screen>(
-                        if (lastSession.isLoggedIn && lastSession.username.isNotBlank()) Screen.Splash
-                        else Screen.Login
-                    )
-                }
+        webView = WebView(this)
+        setContentView(webView)
 
-                var currentServerCode by remember { mutableStateOf(lastSession.serverCode) }
-                var savedUser by remember { mutableStateOf(lastSession.username) }
-                var savedPass by remember { mutableStateOf(lastSession.password) }
-                var expiryDateFormatted by remember { mutableStateOf(lastSession.expiryDate) }
+        val assetLoader = WebViewAssetLoader.Builder()
+            .setDomain("appassets.androidplatform.net")
+            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
+            .build()
 
-                // Parental Control State
-                var isParentalControlEnabled by remember { mutableStateOf(true) }
-                var parentalPin by remember { mutableStateOf("0000") }
+        webView.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            databaseEnabled = true
+            mediaPlaybackRequiresUserGesture = false
+            allowFileAccess = true
+            allowContentAccess = true
+            loadWithOverviewMode = true
+            useWideViewPort = true
+            cacheMode = WebSettings.LOAD_DEFAULT
+            userAgentString = "IPTVSmartersPro"
+        }
 
-                fun isAdultCategory(name: String): Boolean {
-                    val lower = name.lowercase()
-                    return lower.contains("xxx") || lower.contains("adult") ||
-                           lower.contains("hot") || lower.contains("playboy") ||
-                           lower.contains("sexy") || lower.contains("venus") ||
-                           lower.contains("for adult")
-                }
+        webView.addJavascriptInterface(XtreamBridge(this, httpClient), "AndroidBridge")
 
-                fun filterCategories(categories: List<Category>): List<Category> {
-                    return if (!isParentalControlEnabled) categories
-                    else categories.filter { !isAdultCategory(it.categoryName) }
-                }
-
-                // Live TV State
-                var rawLiveCategories by remember { mutableStateOf<List<Category>>(emptyList()) }
-                var liveChannels by remember { mutableStateOf<List<Channel>>(emptyList()) }
-                var selectedLiveCategoryId by remember { mutableStateOf<String?>(null) }
-
-                // VOD Movies State
-                var rawVodCategories by remember { mutableStateOf<List<Category>>(emptyList()) }
-                var vodMovies by remember { mutableStateOf<List<VodMovie>>(emptyList()) }
-                var selectedVodCategoryId by remember { mutableStateOf<String?>(null) }
-                var isLoadingMovies by remember { mutableStateOf(false) }
-
-                // Series State
-                var rawSeriesCategories by remember { mutableStateOf<List<Category>>(emptyList()) }
-                var seriesList by remember { mutableStateOf<List<SeriesItem>>(emptyList()) }
-                var selectedSeriesCategoryId by remember { mutableStateOf<String?>(null) }
-                var selectedSeriesDetail by remember { mutableStateOf<SeriesItem?>(null) }
-                var currentEpisodes by remember { mutableStateOf<List<EpisodeItem>>(emptyList()) }
-                var isLoadingSeries by remember { mutableStateOf(false) }
-                var isLoadingEpisodes by remember { mutableStateOf(false) }
-
-                // Ping de Sessão Silencioso a cada 60s (WatchHub Session Control)
-                LaunchedEffect(savedUser) {
-                    if (savedUser.isNotBlank()) {
-                        while (true) {
-                            delay(60000L)
-                            try {
-                                SupabaseAuthRepository.pingSession(savedUser)
-                            } catch (e: Exception) {
-                                // Silent background ping
-                            }
-                        }
-                    }
-                }
-
-                when (val screen = currentScreen) {
-                    is Screen.Splash -> {
-                        // Tela de Conexão Automática (Lembrar Login)
-                        LaunchedEffect(Unit) {
-                            try {
-                                val api = XtreamRepository.getApi(lastSession.serverCode)
-                                val authRes = api.login(lastSession.username, lastSession.password)
-                                if (authRes.isSuccessful && authRes.body()?.userInfo?.auth == 1) {
-                                    currentServerCode = lastSession.serverCode
-                                    savedUser = lastSession.username
-                                    savedPass = lastSession.password
-
-                                    val rawExp = authRes.body()?.userInfo?.expDate
-                                    expiryDateFormatted = rawExp?.toLongOrNull()?.let { timestamp ->
-                                        val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-                                        sdf.format(Date(timestamp * 1000L))
-                                    }
-
-                                    // Atualiza a sessão persistida com a nova validade
-                                    SessionManager.saveSession(
-                                        this@MainActivity,
-                                        currentServerCode,
-                                        savedUser,
-                                        savedPass,
-                                        expiryDateFormatted
-                                    )
-
-                                    // Carrega categorias de canais
-                                    val catRes = api.getLiveCategories(savedUser, savedPass)
-                                    if (catRes.isSuccessful) {
-                                        rawLiveCategories = catRes.body() ?: emptyList()
-                                        val filtered = filterCategories(rawLiveCategories)
-                                        if (filtered.isNotEmpty()) {
-                                            selectedLiveCategoryId = filtered.first().categoryId
-                                        }
-                                    }
-
-                                    currentScreen = Screen.Home
-                                } else {
-                                    // Falha na autenticação -> vai para a tela de login
-                                    currentServerCode = lastSession.serverCode
-                                    savedUser = lastSession.username
-                                    savedPass = lastSession.password
-                                    currentScreen = Screen.Login
-                                }
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                                currentServerCode = lastSession.serverCode
-                                savedUser = lastSession.username
-                                savedPass = lastSession.password
-                                currentScreen = Screen.Login
-                            }
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(
-                                    Brush.radialGradient(
-                                        colors = listOf(Color(0xFF161F30), Color(0xFF090D14)),
-                                        radius = 1200f
-                                    )
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Image(
-                                    painter = painterResource(id = R.drawable.logo_dravtv_3d),
-                                    contentDescription = "DravTV",
-                                    modifier = Modifier.height(110.dp)
-                                )
-                                Spacer(modifier = Modifier.height(24.dp))
-                                CircularProgressIndicator(
-                                    color = Color(0xFFFF9100),
-                                    modifier = Modifier.size(36.dp)
-                                )
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Text(
-                                    text = "Conectando ao DravTV...",
-                                    color = Color.White,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
-                    }
-
-                    is Screen.Login -> {
-                        LoginScreen(
-                            initialServerCode = "",
-                            initialUser = savedUser.ifBlank { lastSession.username },
-                            initialPass = savedPass.ifBlank { lastSession.password },
-                            onLogin = { serverCode, user, pass ->
-                                try {
-                                    // ETAPA 1: Resolução de Código via Nuvem Supabase Oficial
-                                    val validation = SupabaseAuthRepository.validateCode(serverCode, user, pass)
-                                    val resolvedServerUrl = when (validation) {
-                                        is SupabaseAuthRepository.CodeValidationResult.Success -> validation.serverUrl
-                                        is SupabaseAuthRepository.CodeValidationResult.Error -> return@LoginScreen validation.message
-                                    }
-
-                                    // ETAPA 2: Handshake direto com o servidor Xtream Codes via player_api.php
-                                    val api = XtreamRepository.getApi(resolvedServerUrl)
-                                    val authRes = api.login(user, pass)
-
-                                    if (authRes.isSuccessful && authRes.body()?.userInfo?.auth == 1) {
-                                        currentServerCode = resolvedServerUrl
-                                        savedUser = user
-                                        savedPass = pass
-
-                                        val rawExp = authRes.body()?.userInfo?.expDate
-                                        expiryDateFormatted = rawExp?.toLongOrNull()?.let { timestamp ->
-                                            val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-                                            sdf.format(Date(timestamp * 1000L))
-                                        }
-
-                                        // Salva a sessão para entrar automaticamente nas próximas vezes
-                                        SessionManager.saveSession(
-                                            this@MainActivity,
-                                            resolvedServerUrl,
-                                            user,
-                                            pass,
-                                            expiryDateFormatted
-                                        )
-
-                                        // Confirmação de login no Supabase em background
-                                        if (validation is SupabaseAuthRepository.CodeValidationResult.Success) {
-                                            lifecycleScope.launch(Dispatchers.IO) {
-                                                SupabaseAuthRepository.commitLogin(validation.probeToken, pass)
-                                            }
-                                        }
-
-                                        // Carrega categorias de canais
-                                        val catRes = api.getLiveCategories(user, pass)
-                                        if (catRes.isSuccessful) {
-                                            rawLiveCategories = catRes.body() ?: emptyList()
-                                            val filtered = filterCategories(rawLiveCategories)
-                                            if (filtered.isNotEmpty()) {
-                                                selectedLiveCategoryId = filtered.first().categoryId
-                                            }
-                                        }
-
-                                        currentScreen = Screen.Home
-                                        null
-                                    } else {
-                                        "Usuário ou senha incorretos."
-                                    }
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
-                                    "Falha ao conectar ao servidor. Verifique os dados e a internet."
-                                }
-                            }
-                        )
-                    }
-
-                    is Screen.Home -> {
-                        HomeScreen(
-                            username = savedUser,
-                            serverCode = currentServerCode,
-                            expiryDate = expiryDateFormatted,
-                            onNavigateLive = {
-                                lifecycleScope.launch {
-                                    val api = XtreamRepository.getApi(currentServerCode)
-                                    val streamRes = api.getLiveStreams(savedUser, savedPass)
-                                    if (streamRes.isSuccessful) {
-                                        liveChannels = streamRes.body() ?: emptyList()
-                                    }
-                                    currentScreen = Screen.LiveTv
-                                }
-                            },
-                            onNavigateVod = {
-                                currentScreen = Screen.Vod
-                                lifecycleScope.launch {
-                                    try {
-                                        val api = XtreamRepository.getApi(currentServerCode)
-                                        val catRes = api.getVodCategories(savedUser, savedPass)
-                                        if (catRes.isSuccessful) {
-                                            rawVodCategories = catRes.body() ?: emptyList()
-                                            val filtered = filterCategories(rawVodCategories)
-                                            val firstCat = filtered.firstOrNull()?.categoryId
-                                            selectedVodCategoryId = firstCat
-                                            if (firstCat != null) {
-                                                isLoadingMovies = true
-                                                val moviesRes = api.getVodStreams(savedUser, savedPass, categoryId = firstCat)
-                                                if (moviesRes.isSuccessful) {
-                                                    vodMovies = moviesRes.body() ?: emptyList()
-                                                }
-                                                isLoadingMovies = false
-                                            }
-                                        }
-                                    } catch (e: Exception) {
-                                        e.printStackTrace()
-                                        isLoadingMovies = false
-                                    }
-                                }
-                            },
-                            onNavigateSeries = {
-                                currentScreen = Screen.Series
-                                lifecycleScope.launch {
-                                    try {
-                                        val api = XtreamRepository.getApi(currentServerCode)
-                                        val catRes = api.getSeriesCategories(savedUser, savedPass)
-                                        if (catRes.isSuccessful) {
-                                            rawSeriesCategories = catRes.body() ?: emptyList()
-                                            val filtered = filterCategories(rawSeriesCategories)
-                                            val firstCat = filtered.firstOrNull()?.categoryId
-                                            selectedSeriesCategoryId = firstCat
-                                            if (firstCat != null) {
-                                                isLoadingSeries = true
-                                                val seriesRes = api.getSeries(savedUser, savedPass, categoryId = firstCat)
-                                                if (seriesRes.isSuccessful) {
-                                                    seriesList = seriesRes.body() ?: emptyList()
-                                                }
-                                                isLoadingSeries = false
-                                            }
-                                        }
-                                    } catch (e: Exception) {
-                                        e.printStackTrace()
-                                        isLoadingSeries = false
-                                    }
-                                }
-                            },
-                            onNavigateSettings = {
-                                currentScreen = Screen.Settings
-                            },
-                            onLogout = {
-                                SessionManager.clearSession(this@MainActivity)
-                                currentScreen = Screen.Login
-                            }
-                        )
-                    }
-
-                    is Screen.LiveTv -> {
-                        val activeCategories = filterCategories(rawLiveCategories)
-                        val filteredChannels = remember(selectedLiveCategoryId, liveChannels) {
-                            if (selectedLiveCategoryId == null) liveChannels
-                            else liveChannels.filter { it.categoryId == selectedLiveCategoryId }
-                        }
-
-                        LiveTvScreen(
-                            categories = activeCategories,
-                            channels = filteredChannels,
-                            selectedCategoryId = selectedLiveCategoryId,
-                            onSelectCategory = { catId ->
-                                selectedLiveCategoryId = catId
-                            },
-                            onSelectChannel = { channel ->
-                                val streamUrl = XtreamRepository.buildLiveStreamUrl(
-                                    hostOrCode = currentServerCode,
-                                    user = savedUser,
-                                    pass = savedPass,
-                                    streamId = channel.streamId,
-                                    ext = channel.extension ?: "ts"
-                                )
-                                currentScreen = Screen.Player(
-                                    url = streamUrl,
-                                    title = channel.name,
-                                    previousScreen = Screen.LiveTv
-                                )
-                            },
-                            onBack = {
-                                currentScreen = Screen.Home
-                            }
-                        )
-                    }
-
-                    is Screen.Vod -> {
-                        val activeCategories = filterCategories(rawVodCategories)
-
-                        VodScreen(
-                            categories = activeCategories,
-                            movies = vodMovies,
-                            isLoadingMovies = isLoadingMovies,
-                            selectedCategoryId = selectedVodCategoryId,
-                            onSelectCategory = { catId ->
-                                selectedVodCategoryId = catId
-                                isLoadingMovies = true
-                                lifecycleScope.launch {
-                                    try {
-                                        val api = XtreamRepository.getApi(currentServerCode)
-                                        val moviesRes = api.getVodStreams(savedUser, savedPass, categoryId = catId)
-                                        if (moviesRes.isSuccessful) {
-                                            vodMovies = moviesRes.body() ?: emptyList()
-                                        }
-                                    } catch (e: Exception) {
-                                        e.printStackTrace()
-                                    } finally {
-                                        isLoadingMovies = false
-                                    }
-                                }
-                            },
-                            onSelectMovie = { movie ->
-                                val movieProgress = WatchProgressManager.getMovieProgress(this@MainActivity, movie.streamId)
-                                val startPos = if (movieProgress.isCompleted) 0L else movieProgress.positionMs
-                                val streamUrl = XtreamRepository.buildVodStreamUrl(
-                                    hostOrCode = currentServerCode,
-                                    user = savedUser,
-                                    pass = savedPass,
-                                    streamId = movie.streamId,
-                                    ext = movie.containerExtension ?: "mkv"
-                                )
-                                currentScreen = Screen.Player(
-                                    url = streamUrl,
-                                    title = movie.name,
-                                    previousScreen = Screen.Vod,
-                                    startPositionMs = startPos,
-                                    onSaveProgress = { pos, dur ->
-                                        WatchProgressManager.saveMovieProgress(
-                                            context = this@MainActivity,
-                                            streamId = movie.streamId,
-                                            positionMs = pos,
-                                            durationMs = dur
-                                        )
-                                    }
-                                )
-                            },
-                            onBack = {
-                                currentScreen = Screen.Home
-                            }
-                        )
-                    }
-
-                    is Screen.Series -> {
-                        val activeCategories = filterCategories(rawSeriesCategories)
-
-                        SeriesScreen(
-                            categories = activeCategories,
-                            seriesList = seriesList,
-                            isLoadingSeries = isLoadingSeries,
-                            selectedCategoryId = selectedSeriesCategoryId,
-                            onSelectCategory = { catId ->
-                                selectedSeriesCategoryId = catId
-                                isLoadingSeries = true
-                                lifecycleScope.launch {
-                                    try {
-                                        val api = XtreamRepository.getApi(currentServerCode)
-                                        val seriesRes = api.getSeries(savedUser, savedPass, categoryId = catId)
-                                        if (seriesRes.isSuccessful) {
-                                            seriesList = seriesRes.body() ?: emptyList()
-                                        }
-                                    } catch (e: Exception) {
-                                        e.printStackTrace()
-                                    } finally {
-                                        isLoadingSeries = false
-                                    }
-                                }
-                            },
-                            onSelectSeries = { series ->
-                                selectedSeriesDetail = series
-                                isLoadingEpisodes = true
-                                currentEpisodes = emptyList()
-                                lifecycleScope.launch {
-                                    try {
-                                        val api = XtreamRepository.getApi(currentServerCode)
-                                        val res = api.getSeriesInfo(savedUser, savedPass, series.seriesId)
-                                        if (res.isSuccessful) {
-                                            val episodesMap = res.body()?.episodes
-                                            val parsedList = mutableListOf<EpisodeItem>()
-                                            if (episodesMap != null && episodesMap.isJsonObject) {
-                                                val jsonObject = episodesMap.asJsonObject
-                                                for (key in jsonObject.keySet()) {
-                                                    val seasonArr = jsonObject.getAsJsonArray(key)
-                                                    seasonArr?.forEach { epElem ->
-                                                        val obj = epElem.asJsonObject
-                                                        parsedList.add(
-                                                            EpisodeItem(
-                                                                id = obj.get("id")?.asString ?: "",
-                                                                episodeNum = obj.get("episode_num")?.asInt,
-                                                                title = obj.get("title")?.asString ?: "Episódio",
-                                                                containerExtension = obj.get("container_extension")?.asString ?: "mkv",
-                                                                season = obj.get("season")?.asInt
-                                                            )
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                            currentEpisodes = parsedList
-                                        }
-                                    } catch (e: Exception) {
-                                        e.printStackTrace()
-                                    } finally {
-                                        isLoadingEpisodes = false
-                                    }
-                                }
-                            },
-                            selectedSeries = selectedSeriesDetail,
-                            episodes = currentEpisodes,
-                            isLoadingEpisodes = isLoadingEpisodes,
-                            onPlayEpisode = { ep ->
-                                val epPos = WatchProgressManager.getEpisodePosition(this@MainActivity, ep.id)
-                                val streamUrl = XtreamRepository.buildSeriesStreamUrl(
-                                    hostOrCode = currentServerCode,
-                                    user = savedUser,
-                                    pass = savedPass,
-                                    streamId = ep.id.toIntOrNull() ?: 0,
-                                    ext = ep.containerExtension ?: "mkv"
-                                )
-                                val sId = selectedSeriesDetail?.seriesId ?: 0
-                                val sNum = ep.season ?: 1
-                                val epNum = ep.episodeNum ?: 1
-                                val sTitle = selectedSeriesDetail?.name ?: "Série"
-
-                                currentScreen = Screen.Player(
-                                    url = streamUrl,
-                                    title = "$sTitle - ${ep.title}",
-                                    previousScreen = Screen.Series,
-                                    startPositionMs = epPos,
-                                    onSaveProgress = { pos, dur ->
-                                        WatchProgressManager.saveSeriesProgress(
-                                            context = this@MainActivity,
-                                            seriesId = sId,
-                                            season = sNum,
-                                            episodeNum = epNum,
-                                            episodeId = ep.id,
-                                            episodeTitle = ep.title,
-                                            positionMs = pos,
-                                            durationMs = dur
-                                        )
-                                    }
-                                )
-                            },
-                            onCloseSeriesDetail = {
-                                selectedSeriesDetail = null
-                                currentEpisodes = emptyList()
-                            },
-                            onBack = {
-                                currentScreen = Screen.Home
-                            }
-                        )
-                    }
-
-                    is Screen.Settings -> {
-                        SettingsScreen(
-                            username = savedUser,
-                            serverCode = currentServerCode,
-                            expiryDate = expiryDateFormatted,
-                            isParentalControlEnabled = isParentalControlEnabled,
-                            onToggleParentalControl = { enabled, pin ->
-                                isParentalControlEnabled = enabled
-                                parentalPin = pin
-                            },
-                            parentalPin = parentalPin,
-                            onRefreshServer = {
-                                lifecycleScope.launch {
-                                    val api = XtreamRepository.getApi(currentServerCode)
-                                    val catRes = api.getLiveCategories(savedUser, savedPass)
-                                    if (catRes.isSuccessful) {
-                                        rawLiveCategories = catRes.body() ?: emptyList()
-                                    }
-                                    val streamRes = api.getLiveStreams(savedUser, savedPass)
-                                    if (streamRes.isSuccessful) {
-                                        liveChannels = streamRes.body() ?: emptyList()
-                                    }
-                                }
-                            },
-                            onLogout = {
-                                SessionManager.clearSession(this@MainActivity)
-                                currentScreen = Screen.Login
-                            },
-                            onBack = {
-                                currentScreen = Screen.Home
-                            }
-                        )
-                    }
-
-                    is Screen.Player -> {
-                        PlayerScreen(
-                            streamUrl = screen.url,
-                            title = screen.title,
-                            startPositionMs = screen.startPositionMs,
-                            onProgressUpdate = screen.onSaveProgress,
-                            onBack = {
-                                currentScreen = screen.previousScreen
-                            }
-                        )
-                    }
-                }
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
+                return super.onConsoleMessage(consoleMessage)
             }
         }
+
+        webView.webViewClient = object : WebViewClient() {
+            override fun shouldInterceptRequest(
+                view: WebView,
+                request: WebResourceRequest
+            ): WebResourceResponse? {
+                val url = request.url.toString()
+
+                // 1. Intercepta chamadas de API do Xtream Codes / Servidor gm08.top
+                if (url.contains("player_api.php") || url.contains("revenda.pixbot.link") || url.contains("/api/xtream/")) {
+                    try {
+                        val targetUrl = if (url.contains("targetUrl=")) {
+                            java.net.URLDecoder.decode(url.substringAfter("targetUrl="), "UTF-8")
+                        } else {
+                            url
+                        }
+                        val okReq = Request.Builder()
+                            .url(targetUrl)
+                            .header("User-Agent", "IPTVSmartersPro")
+                            .header("Accept", "*/*")
+                            .header("Connection", "Keep-Alive")
+                            .build()
+                        val okResp = httpClient.newCall(okReq).execute()
+                        val bodyBytes = okResp.body?.bytes() ?: ByteArray(0)
+                        val contentType = okResp.header("Content-Type", "application/json") ?: "application/json"
+                        val mime = if (contentType.contains(";")) contentType.substringBefore(";") else contentType
+                        return WebResourceResponse(
+                            mime.trim(),
+                            "UTF-8",
+                            200,
+                            "OK",
+                            mapOf(
+                                "Access-Control-Allow-Origin" to "*",
+                                "Access-Control-Allow-Methods" to "GET, POST, OPTIONS",
+                                "Access-Control-Allow-Headers" to "*"
+                            ),
+                            ByteArrayInputStream(bodyBytes)
+                        )
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+
+                // 2. Intercepta Capas e Imagens externas (pn96.eu, tmdb, etc) com User-Agent oficial para evitar Erro 403
+                if (url.contains("pn96.eu") || url.contains("tmdb.org") ||
+                    (url.startsWith("http") && !url.contains("appassets.androidplatform.net") &&
+                     (url.endsWith(".jpg") || url.endsWith(".jpeg") || url.endsWith(".png") || url.endsWith(".webp") || url.contains("/logo/")))
+                ) {
+                    try {
+                        val okReq = Request.Builder()
+                            .url(url)
+                            .header("User-Agent", "IPTVSmartersPro")
+                            .header("Accept", "*/*")
+                            .header("Referer", "http://gm08.top/")
+                            .build()
+                        val okResp = httpClient.newCall(okReq).execute()
+                        if (okResp.isSuccessful) {
+                            val bodyBytes = okResp.body?.bytes() ?: ByteArray(0)
+                            val contentType = okResp.header("Content-Type", "image/jpeg") ?: "image/jpeg"
+                            val mime = if (contentType.contains(";")) contentType.substringBefore(";") else contentType
+                            return WebResourceResponse(
+                                mime.trim(),
+                                null,
+                                200,
+                                "OK",
+                                mapOf(
+                                    "Access-Control-Allow-Origin" to "*",
+                                    "Cache-Control" to "max-age=86400"
+                                ),
+                                ByteArrayInputStream(bodyBytes)
+                            )
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+
+                // 3. Imagens e arquivos estáticos locais do AI Studio
+                val path = request.url.path ?: ""
+                if (path.contains("/aistudio/")) {
+                    val fileName = request.url.lastPathSegment ?: ""
+                    try {
+                        val stream = assets.open("web/assets/aistudio/$fileName")
+                        return WebResourceResponse("image/png", "UTF-8", stream)
+                    } catch (_: Exception) {}
+                }
+                if (path.endsWith("logo_dravtv.png")) {
+                    try {
+                        val stream = assets.open("web/assets/logo_dravtv.png")
+                        return WebResourceResponse("image/png", "UTF-8", stream)
+                    } catch (_: Exception) {}
+                }
+
+                val intercepted = assetLoader.shouldInterceptRequest(request.url)
+                return intercepted ?: super.shouldInterceptRequest(view, request)
+            }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                hideSystemUI()
+            }
+        }
+
+        // Carrega o app oficial do Google AI Studio embutido
+        webView.loadUrl("https://appassets.androidplatform.net/assets/web/index.html")
+
+        // Ping silencioso periódico a cada 60s (WatchHub Session Control)
+        lifecycleScope.launch(Dispatchers.IO) {
+            val prefs = getSharedPreferences("dravtv_session_pref", Context.MODE_PRIVATE)
+            val anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt1bmRrYWlpd21vd21pdmR2aHpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MjAzOTcsImV4cCI6MjA5MTQ5NjM5N30.5QP-JCmsiKGJlLbSGf60eMhu0eKYnxjt4-j94TopAcA"
+            while (true) {
+                delay(60000L)
+                try {
+                    val sessionStr = prefs.getString("dravtv_session", null)
+                    if (!sessionStr.isNullOrBlank()) {
+                        val sessionJson = JSONObject(sessionStr)
+                        val username = sessionJson.optString("username")
+                        if (username.isNotBlank()) {
+                            val jsonBody = JSONObject().apply {
+                                put("p_client_id", username)
+                            }
+                            val req = Request.Builder()
+                                .url("https://kundkaiiwmowmivdvhzj.supabase.co/rest/v1/rpc/ping_session")
+                                .header("apikey", anonKey)
+                                .header("Authorization", "Bearer $anonKey")
+                                .header("Content-Type", "application/json")
+                                .post(jsonBody.toString().toRequestBody("application/json".toMediaTypeOrNull()))
+                                .build()
+                            httpClient.newCall(req).execute().close()
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+        }
+
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (webView.canGoBack()) {
+                    webView.goBack()
+                } else {
+                    finish()
+                }
+            }
+        })
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            hideSystemUI()
+        }
+    }
+
+    private fun hideSystemUI() {
+        @Suppress("DEPRECATION")
+        window.decorView.systemUiVisibility = (
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+            or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+            or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+            or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+            or View.SYSTEM_UI_FLAG_FULLSCREEN
+        )
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) {
+            webView.dispatchKeyEvent(event)
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        webView.destroy()
     }
 }
